@@ -1,173 +1,217 @@
 /**
- * Design tokens.
+ * Design tokens — the source of truth is DESIGN.md ("Paper meadow").
  *
- * Direction: refero "playful storybook" style — white canvas, rounded display type, flat fills,
- * thick 2px borders, 12px radius, no shadows or gradients, one saturated green for actions.
- * Deviations from the reference, all for WCAG AA (MARKET_ANALYSIS.md F-14):
- * - Text on the green fill is Night Ink, not white (white on #58cc02 is only 2.1:1).
- * - Pencil Gray is #767676 instead of #777777 (4.5:1 on white).
- * - Link text uses a deeper Spark Blue (#0a7bb8); the bright one is kept for borders and fills.
- * Period data gets its own berry hue so it never competes with the action green.
+ * Direction: refero MindMarket style — cream paper canvas, white sticker cards, Inter only, generous rounding,
+ * no shadows. Colour is decoration, not status. Every text pair is WCAG AA in both themes (DESIGN.md §4).
  */
 import type { TextStyle } from 'react-native';
 
 export const palette = {
-  eagerGreen: '#58cc02',
-  eagerGreenLip: '#46a302',
-  storybookGreen: '#d7ffb8',
-  freshLeaf: '#a5ed6e',
-  sparkBlue: '#1cb0f6',
-  sparkBlueText: '#0a7bb8',
-  sparkBlueWash: '#ddf4ff',
-  nightInk: '#000437',
-  paperWhite: '#ffffff',
-  charcoal: '#4b4b4b',
-  pencilGray: '#767676',
-  fadedGray: '#afafaf',
-  cloud: '#e5e5e5',
-  mist: '#f7f7f7',
-  berry: '#d1325b',
-  berryLip: '#a8264a',
-  berryWash: '#ffe3ea',
+  creamPaper: '#f5f1e4',
+  pureWhite: '#ffffff',
+  sandstone: '#e0dbce',
+  hairlineMist: '#d5d5d4',
+  /** Stone Gray from the style doc is 3.4:1 on cream, so text uses this deeper step instead. */
+  deepStone: '#60625e',
+  inkBlack: '#2c2e2a',
+  freshGrass: '#8ed462',
+  skyPop: '#2ba0ff',
+  coralPop: '#ff705d',
+  sunshinePop: '#f5e211',
+  /** Sampled from the reference illustrations. */
+  lilac: '#e8c0fc',
+  meadow: '#79c14d',
+  forest: '#65a936',
+  /** Coral deep enough to work as a line or text on cream and white. */
+  emberCoral: '#c9361f',
 } as const;
 
 export type ColorTokens = {
   canvas: string;
+  /** Cards, nav, sheets. White on cream, never white on white. */
   surface: string;
+  /** Recessed: inset wells, ring tracks, tracks of segmented controls. */
   surfaceAlt: string;
   line: string;
-  lineStrong: string;
-  text: string;
-  textStrong: string;
+  ink: string;
   textSecondary: string;
-  textMuted: string;
-  primary: string;
-  primaryLip: string;
-  onPrimary: string;
-  primaryWash: string;
-  link: string;
-  linkBorder: string;
-  linkWash: string;
+  /** The primary action fill, with `onAction` text. */
+  action: string;
+  onAction: string;
+  /** The small circle at the end of every button. */
+  actionDot: string;
+  /** Structural green: the nav blob, chart bars, the circle on secondary buttons. */
+  structure: string;
+  onStructure: string;
   period: string;
-  periodLip: string;
   onPeriod: string;
+  /** Period as a thin line or as text: prediction outlines, ring arcs. */
+  periodLine: string;
   periodWash: string;
-  inverseSurface: string;
-  onInverse: string;
-  inverseAction: string;
+  symptom: string;
+  onSymptom: string;
+  mood: string;
+  onMood: string;
+  scrim: string;
+  /** Ribbons and field. */
+  ribbonGrass: string;
+  ribbonGrassShade: string;
+  ribbonSky: string;
+  ribbonSkyShade: string;
+  ribbonCoral: string;
+  ribbonCoralShade: string;
+  ribbonSun: string;
+  ribbonSunShade: string;
+  onRibbonSun: string;
+  hillBack: string;
+  hillMid: string;
+  hillFront: string;
+  fieldInk: string;
 };
 
 export const lightColors: ColorTokens = {
-  canvas: palette.paperWhite,
-  surface: palette.paperWhite,
-  surfaceAlt: palette.mist,
-  line: palette.cloud,
-  lineStrong: palette.fadedGray,
-  text: palette.charcoal,
-  textStrong: palette.nightInk,
-  textSecondary: palette.pencilGray,
-  textMuted: palette.fadedGray,
-  primary: palette.eagerGreen,
-  primaryLip: palette.eagerGreenLip,
-  onPrimary: palette.nightInk,
-  primaryWash: palette.storybookGreen,
-  link: palette.sparkBlueText,
-  linkBorder: palette.sparkBlue,
-  linkWash: palette.sparkBlueWash,
-  period: palette.berry,
-  periodLip: palette.berryLip,
-  onPeriod: palette.paperWhite,
-  periodWash: palette.berryWash,
-  inverseSurface: palette.nightInk,
-  onInverse: palette.paperWhite,
-  inverseAction: palette.freshLeaf,
+  canvas: palette.creamPaper,
+  surface: palette.pureWhite,
+  surfaceAlt: palette.sandstone,
+  line: palette.hairlineMist,
+  ink: palette.inkBlack,
+  textSecondary: palette.deepStone,
+  action: palette.sunshinePop,
+  onAction: palette.inkBlack,
+  actionDot: palette.pureWhite,
+  structure: palette.freshGrass,
+  onStructure: palette.inkBlack,
+  period: palette.coralPop,
+  onPeriod: palette.inkBlack,
+  periodLine: palette.emberCoral,
+  periodWash: '#ffe2dc',
+  symptom: palette.skyPop,
+  onSymptom: palette.inkBlack,
+  mood: palette.lilac,
+  onMood: palette.inkBlack,
+  scrim: 'rgba(44, 46, 42, 0.32)',
+  ribbonGrass: palette.freshGrass,
+  ribbonGrassShade: '#378e43',
+  ribbonSky: palette.skyPop,
+  ribbonSkyShade: '#1a72bb',
+  ribbonCoral: palette.coralPop,
+  ribbonCoralShade: '#c94a39',
+  ribbonSun: palette.sunshinePop,
+  ribbonSunShade: '#ddcb1a',
+  onRibbonSun: palette.inkBlack,
+  hillBack: palette.forest,
+  hillMid: palette.meadow,
+  hillFront: palette.freshGrass,
+  fieldInk: palette.inkBlack,
 };
 
-/** Dark mode is derived from Night Ink so it stays on-palette. */
+/** Night meadow: the style doc has no dark theme, so these are ours. Ribbons drop a step so they don't glare. */
 export const darkColors: ColorTokens = {
-  canvas: '#0a0f2e',
-  surface: '#121842',
-  surfaceAlt: '#1a2150',
-  line: '#2a3263',
-  lineStrong: '#4a5288',
-  text: '#e9ebff',
-  textStrong: '#ffffff',
-  textSecondary: '#b4b8dc',
-  textMuted: '#7c82b3',
-  primary: palette.eagerGreen,
-  primaryLip: '#3f9400',
-  onPrimary: palette.nightInk,
-  primaryWash: '#1d3a16',
-  link: '#4fc3ff',
-  linkBorder: palette.sparkBlue,
-  linkWash: '#10304d',
-  period: '#ff7a9a',
-  periodLip: '#d9577a',
-  onPeriod: '#0a0f2e',
-  periodWash: '#3d1a3a',
-  inverseSurface: '#e9ebff',
-  onInverse: '#0a0f2e',
-  inverseAction: '#2f6b00',
+  canvas: '#1f231c',
+  surface: '#2b3026',
+  surfaceAlt: '#3a4034',
+  line: '#474e40',
+  ink: palette.creamPaper,
+  textSecondary: '#b9bcb1',
+  action: palette.sunshinePop,
+  onAction: palette.inkBlack,
+  actionDot: palette.pureWhite,
+  structure: palette.freshGrass,
+  onStructure: palette.inkBlack,
+  period: palette.coralPop,
+  onPeriod: palette.inkBlack,
+  periodLine: '#ff8b7b',
+  periodWash: '#4a2a24',
+  symptom: palette.skyPop,
+  onSymptom: palette.inkBlack,
+  mood: palette.lilac,
+  onMood: palette.inkBlack,
+  scrim: 'rgba(0, 0, 0, 0.5)',
+  ribbonGrass: '#4f8f3a',
+  ribbonGrassShade: '#2c5a26',
+  ribbonSky: '#2384d4',
+  ribbonSkyShade: '#14558c',
+  ribbonCoral: '#e0604f',
+  ribbonCoralShade: '#9c3a2e',
+  ribbonSun: '#d9c814',
+  ribbonSunShade: '#9c8f12',
+  onRibbonSun: palette.inkBlack,
+  hillBack: '#2f5426',
+  hillMid: '#3a6a2e',
+  hillFront: '#4a8038',
+  fieldInk: '#1b1e18',
 };
 
-/** Rounded display face only at 48px+, per the reference; everything else is Nunito Sans. */
+/** Inter only, regular and medium. No second typeface, no bold. */
 export const fonts = {
-  display: 'Nunito_900Black',
-  body: 'NunitoSans_500Medium',
-  semibold: 'NunitoSans_600SemiBold',
-  bold: 'NunitoSans_700Bold',
-  heavy: 'NunitoSans_800ExtraBold',
+  regular: 'Inter_400Regular',
+  medium: 'Inter_500Medium',
 } as const;
 
+const track = (size: number, em: number) => Math.round(size * em * 100) / 100;
+
+/** The style doc's scale, stepped down for a phone: 53px stays the floor for page headings. */
 export const typeScale = {
-  display: { fontFamily: fonts.display, fontSize: 64, lineHeight: 72, letterSpacing: -1.28 },
-  displaySm: { fontFamily: fonts.display, fontSize: 48, lineHeight: 56, letterSpacing: -0.96 },
-  title: { fontFamily: fonts.heavy, fontSize: 30, lineHeight: 36 },
-  heading: { fontFamily: fonts.heavy, fontSize: 22, lineHeight: 28 },
-  subheading: { fontFamily: fonts.bold, fontSize: 19, lineHeight: 26 },
-  body: { fontFamily: fonts.body, fontSize: 17, lineHeight: 23 },
-  bodyBold: { fontFamily: fonts.bold, fontSize: 17, lineHeight: 23 },
-  label: {
-    fontFamily: fonts.heavy,
-    fontSize: 15,
-    lineHeight: 20,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
-  caption: { fontFamily: fonts.semibold, fontSize: 13, lineHeight: 17 },
-  eyebrow: {
-    fontFamily: fonts.heavy,
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
+  display: { fontFamily: fonts.medium, fontSize: 72, lineHeight: 72, letterSpacing: track(72, -0.06) },
+  headingLg: { fontFamily: fonts.medium, fontSize: 53, lineHeight: 58, letterSpacing: track(53, -0.04) },
+  heading: { fontFamily: fonts.medium, fontSize: 40, lineHeight: 44, letterSpacing: track(40, -0.04) },
+  headingSm: { fontFamily: fonts.medium, fontSize: 30, lineHeight: 36, letterSpacing: track(30, -0.03) },
+  subheading: { fontFamily: fonts.medium, fontSize: 20, lineHeight: 25, letterSpacing: track(20, -0.01) },
+  paragraph: { fontFamily: fonts.regular, fontSize: 17, lineHeight: 26 },
+  body: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22 },
+  bodyStrong: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 22 },
+  button: { fontFamily: fonts.medium, fontSize: 16, lineHeight: 22 },
+  label: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 20 },
+  caption: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
 } satisfies Record<string, TextStyle>;
 
 export type TypeVariant = keyof typeof typeScale;
 
+/** 4px grid. */
 export const space = {
-  xs: 4,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 24,
-  xxl: 32,
-  xxxl: 40,
-  huge: 48,
+  1: 4,
+  2: 8,
+  3: 12,
+  4: 16,
+  5: 20,
+  6: 24,
+  8: 32,
+  10: 40,
+  12: 48,
+  16: 64,
 } as const;
 
+/** Sticker-soft everywhere; nothing below 10. */
 export const radius = {
-  control: 12,
-  card: 16,
-  sheet: 24,
-  pill: 999,
+  small: 10,
+  inset: 22,
+  card: 50,
+  full: 999,
 } as const;
 
-export const border = {
-  width: 2,
-  lip: 4,
+export const size = {
+  touch: 44,
+  button: 60,
+  buttonDot: 44,
+  nav: 64,
+  navItem: 48,
 } as const;
 
 /** Content column width on tablets and the web preview. */
 export const maxContentWidth = 560;
+
+/**
+ * A full-bleed Skia canvas that touches pass through. One plain object, with pointerEvents in the style,
+ * because the web build of `Canvas` takes neither style arrays nor the pointerEvents prop.
+ */
+export const canvasOverlay = {
+  position: 'absolute',
+  left: 0,
+  top: 0,
+  right: 0,
+  bottom: 0,
+  pointerEvents: 'none',
+} as const;
+
+/** The gutter between the screen edge and any card. */
+export const gutter = space[4];

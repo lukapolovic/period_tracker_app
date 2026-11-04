@@ -2,9 +2,9 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui';
 import { formatDay, monthMatrix, parts, weekdayInitials, type ISODate } from '@/lib/dates';
-import { border, useTheme } from '@/theme';
+import { fonts, radius, space, useTheme } from '@/theme';
 
-/** `period` = logged (solid); `predicted` = estimate (dashed outline + tint, never colour-only). */
+/** `period` = logged (solid fill); `predicted` = estimate (dashed outline) — never colour-only. */
 export type DayMark = 'none' | 'period' | 'predicted';
 
 export type DayInfo = {
@@ -23,13 +23,14 @@ type MonthGridProps = {
   onPressDay: (date: ISODate) => void;
 };
 
+/** A month of soft circles. */
 export function MonthGrid({ year, monthIndex, weekStartsOn, getDayInfo, onPressDay }: MonthGridProps) {
   const rows = monthMatrix(year, monthIndex, weekStartsOn);
   return (
-    <View>
+    <View style={styles.grid}>
       <View style={styles.row} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         {weekdayInitials(weekStartsOn).map((d, i) => (
-          <Text key={i} variant="eyebrow" tone="secondary" align="center" style={styles.weekday}>
+          <Text key={i} variant="caption" tone="secondary" align="center" style={styles.weekday}>
             {d}
           </Text>
         ))}
@@ -60,70 +61,54 @@ function describe(date: ISODate, info: DayInfo): string {
 
 function DayCell({ date, info, onPress }: { date: ISODate; info: DayInfo; onPress: (d: ISODate) => void }) {
   const { colors } = useTheme();
-  const fill =
-    info.mark === 'period'
-      ? { backgroundColor: colors.period, borderColor: colors.period }
-      : info.mark === 'predicted'
-        ? { backgroundColor: colors.periodWash, borderColor: colors.period, borderStyle: 'dashed' as const }
-        : { backgroundColor: 'transparent', borderColor: 'transparent' };
-  const textColor =
-    info.mark === 'period' ? colors.onPeriod : info.isFuture && info.mark === 'none' ? colors.textSecondary : colors.text;
+  const isPeriod = info.mark === 'period';
+  const outline =
+    info.mark === 'predicted'
+      ? { borderColor: colors.periodLine, borderStyle: 'dashed' as const }
+      : info.isToday
+        ? { borderColor: colors.ink }
+        : { borderColor: 'transparent' };
+  const fill = isPeriod ? colors.period : info.isToday ? colors.structure : 'transparent';
+  const textColor = isPeriod
+    ? colors.onPeriod
+    : info.isToday
+      ? colors.onStructure
+      : info.disabled || (info.isFuture && info.mark === 'none')
+        ? colors.textSecondary
+        : colors.ink;
 
   return (
     <Pressable
-      style={styles.cell}
       disabled={info.disabled}
       onPress={() => onPress(date)}
       accessibilityRole="button"
       accessibilityLabel={describe(date, info)}
-      accessibilityState={{ disabled: !!info.disabled }}>
-      {({ pressed }) => (
-        <View
-          style={[
-            styles.ring,
-            info.isToday && { borderColor: colors.textStrong },
-            pressed && styles.pressed,
-            info.disabled && styles.disabled,
-          ]}>
-          <View style={[styles.circle, fill]}>
-            <Text variant="bodyBold" style={[styles.number, { color: textColor }]}>
-              {parts(date).day}
-            </Text>
-            {info.hasLog ? (
-              <View
-                style={[styles.dot, { backgroundColor: info.mark === 'period' ? colors.onPeriod : colors.textSecondary }]}
-              />
-            ) : null}
-          </View>
-        </View>
-      )}
+      accessibilityState={{ disabled: !!info.disabled }}
+      style={({ pressed }) => [
+        styles.cell,
+        styles.day,
+        outline,
+        { backgroundColor: pressed && !isPeriod && !info.isToday ? colors.canvas : fill },
+      ]}>
+      <Text style={[styles.number, { color: textColor }]}>{parts(date).day}</Text>
+      {info.hasLog ? (
+        <View style={[styles.dot, { backgroundColor: isPeriod || info.isToday ? colors.ink : colors.textSecondary }]} />
+      ) : null}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row' },
-  weekday: { flex: 1, paddingBottom: 6 },
-  cell: { flex: 1, height: 50, alignItems: 'center', justifyContent: 'center' },
-  ring: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    borderWidth: border.width,
-    borderColor: 'transparent',
+  grid: { gap: 2 },
+  row: { flexDirection: 'row', gap: 2 },
+  weekday: { flex: 1, paddingBottom: space[1] },
+  cell: { flex: 1, aspectRatio: 1 },
+  day: {
+    borderWidth: 1.5,
+    borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  circle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: border.width,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  number: { fontSize: 16, lineHeight: 20 },
-  dot: { position: 'absolute', bottom: 3, width: 5, height: 5, borderRadius: 3 },
-  pressed: { transform: [{ scale: 0.92 }] },
-  disabled: { opacity: 0.35 },
+  number: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 18 },
+  dot: { position: 'absolute', bottom: 5, width: 4, height: 4, borderRadius: 2 },
 });

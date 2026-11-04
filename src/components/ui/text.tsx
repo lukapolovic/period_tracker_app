@@ -2,29 +2,16 @@ import { Text as RNText, type TextProps as RNTextProps } from 'react-native';
 
 import { typeScale, useTheme, type ColorTokens, type TypeVariant } from '@/theme';
 
-export type TextTone =
-  | 'default'
-  | 'strong'
-  | 'secondary'
-  | 'muted'
-  | 'link'
-  | 'period'
-  | 'onPrimary'
-  | 'onPeriod'
-  | 'onInverse'
-  | 'inverseAction';
+export type TextTone = 'default' | 'secondary' | 'period' | 'onAction' | 'onPeriod' | 'inverse';
 
 const toneColor: Record<TextTone, keyof ColorTokens> = {
-  default: 'text',
-  strong: 'textStrong',
+  default: 'ink',
   secondary: 'textSecondary',
-  muted: 'textMuted',
-  link: 'link',
-  period: 'period',
-  onPrimary: 'onPrimary',
+  period: 'periodLine',
+  onAction: 'onAction',
   onPeriod: 'onPeriod',
-  onInverse: 'onInverse',
-  inverseAction: 'inverseAction',
+  // Text on an ink fill (the snackbar): the canvas colour reads in both themes.
+  inverse: 'canvas',
 };
 
 export type TextProps = RNTextProps & {
@@ -35,18 +22,12 @@ export type TextProps = RNTextProps & {
 
 export function Text({ variant = 'body', tone = 'default', align, style, ...rest }: TextProps) {
   const { colors } = useTheme();
-  const isDisplay = variant === 'display' || variant === 'displaySm';
   return (
     <RNText
-      // Big numerals stay readable without breaking the layout; body text scales to 200%.
-      maxFontSizeMultiplier={isDisplay ? 1.3 : 2}
+      // Display type stays inside its shapes; everything else scales to 200%.
+      maxFontSizeMultiplier={variant === 'display' ? 1 : variant === 'headingLg' ? 1.3 : 2}
       {...rest}
-      style={[
-        typeScale[variant],
-        { color: colors[toneColor[tone]] },
-        align ? { textAlign: align } : null,
-        style,
-      ]}
+      style={[typeScale[variant], { color: colors[toneColor[tone]] }, align ? { textAlign: align } : null, style]}
     />
   );
 }

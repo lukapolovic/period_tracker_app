@@ -34,6 +34,6 @@ export function LengthSetting({ label, value, fallback, min, max, onChange }: Le
 }
 
 const styles = StyleSheet.create({
-  setting: { gap: space.sm, paddingTop: space.sm },
+  setting: { gap: space[3], paddingTop: space[2] },
   center: { alignItems: 'center' },
 });

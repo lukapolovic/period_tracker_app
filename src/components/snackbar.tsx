@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/ui';
-import { maxContentWidth, radius, space, useTheme } from '@/theme';
+import { gutter, maxContentWidth, radius, size, space, useTheme } from '@/theme';
 
 export type SnackState = { message: string; actionLabel?: string; onAction?: () => void };
 
-export function useSnackbar(timeoutMs = 5000) {
+export function useSnackbar(timeoutMs = 6000) {
   const [snack, setSnack] = useState<SnackState | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -34,29 +35,28 @@ export function useSnackbar(timeoutMs = 5000) {
   return { snack, show, hide };
 }
 
-/** Bottom message with an optional action (used for Undo). */
+/** Ink pill docked just above the nav, with an optional action (used for Undo). */
 export function Snackbar({ snack, onHide }: { snack: SnackState | null; onHide: () => void }) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   if (!snack) return null;
   return (
-    <View style={styles.wrap} pointerEvents="box-none">
-      <View
-        accessibilityLiveRegion="polite"
-        accessibilityRole="alert"
-        style={[styles.bar, { backgroundColor: colors.inverseSurface }]}>
-        <Text variant="bodyBold" tone="onInverse" style={styles.message}>
+    <View style={[styles.wrap, { bottom: insets.bottom + size.nav + space[6] }]} pointerEvents="box-none">
+      <View accessibilityLiveRegion="polite" accessibilityRole="alert" style={[styles.bar, { backgroundColor: colors.ink }]}>
+        <Text variant="body" tone="inverse" style={styles.message}>
           {snack.message}
         </Text>
         {snack.actionLabel && snack.onAction ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={snack.actionLabel}
-            hitSlop={8}
+            hitSlop={4}
+            style={[styles.action, { backgroundColor: colors.action }]}
             onPress={() => {
               snack.onAction?.();
               onHide();
             }}>
-            <Text variant="label" tone="inverseAction">
+            <Text variant="label" tone="onAction">
               {snack.actionLabel}
             </Text>
           </Pressable>
@@ -67,17 +67,24 @@ export function Snackbar({ snack, onHide }: { snack: SnackState | null; onHide: 
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: 'absolute', left: space.lg, right: space.lg, bottom: space.lg, alignItems: 'center' },
+  wrap: { position: 'absolute', left: gutter, right: gutter, alignItems: 'center' },
   bar: {
     width: '100%',
-    maxWidth: maxContentWidth - space.xxl,
-    minHeight: 56,
-    borderRadius: radius.control,
-    paddingHorizontal: space.lg,
-    paddingVertical: space.md,
+    maxWidth: maxContentWidth,
+    minHeight: size.nav - 4,
+    borderRadius: radius.full,
+    paddingLeft: space[6],
+    paddingRight: space[2],
+    paddingVertical: space[2],
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.md,
+    gap: space[3],
   },
   message: { flex: 1 },
+  action: {
+    minHeight: size.touch,
+    justifyContent: 'center',
+    paddingHorizontal: space[5],
+    borderRadius: radius.full,
+  },
 });

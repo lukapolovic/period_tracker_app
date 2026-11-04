@@ -1,9 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Pressable, StyleSheet } from 'react-native';
 
-import { border, radius, useTheme } from '@/theme';
+import { radius, size, useTheme } from '@/theme';
 
-import { pressStyles, type IconName } from './button';
+import type { IconName } from './button';
 
 type IconButtonProps = {
   icon: IconName;
@@ -11,9 +11,11 @@ type IconButtonProps = {
   label: string;
   onPress: () => void;
   disabled?: boolean;
+  /** `surface` on the canvas, `inset` inside a white card. */
+  tone?: 'surface' | 'inset';
 };
 
-export function IconButton({ icon, label, onPress, disabled }: IconButtonProps) {
+export function IconButton({ icon, label, onPress, disabled, tone = 'surface' }: IconButtonProps) {
   const { colors } = useTheme();
   return (
     <Pressable
@@ -22,24 +24,25 @@ export function IconButton({ icon, label, onPress, disabled }: IconButtonProps) 
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
-      hitSlop={4}
       style={({ pressed }) => [
         styles.base,
-        { backgroundColor: colors.surface, borderColor: colors.line },
-        pressed && !disabled ? pressStyles.pressed : pressStyles.raised,
+        { backgroundColor: tone === 'inset' ? colors.canvas : colors.surface },
+        disabled && styles.disabled,
+        pressed && styles.pressed,
       ]}>
-      <Ionicons name={icon} size={22} color={disabled ? colors.textMuted : colors.text} />
+      <Ionicons name={icon} size={22} color={disabled ? colors.textSecondary : colors.ink} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   base: {
-    width: 46,
-    height: 46,
-    borderRadius: radius.control,
-    borderWidth: border.width,
+    width: size.touch,
+    height: size.touch,
+    borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  disabled: { opacity: 0.5 },
+  pressed: { transform: [{ scale: 0.92 }] },
 });

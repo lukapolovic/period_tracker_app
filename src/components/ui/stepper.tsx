@@ -20,7 +20,7 @@ export function Stepper({ label, value, min, max, unit, onChange, disabled }: St
   const inc = () => onChange(Math.min(max, value + 1));
   return (
     <View style={styles.row}>
-      <IconButton icon="remove" label={`Decrease ${label}`} onPress={dec} disabled={disabled || value <= min} />
+      <IconButton tone="inset" icon="remove" label={`Decrease ${label}`} onPress={dec} disabled={disabled || value <= min} />
       <View
         style={styles.value}
         accessible
@@ -29,19 +29,19 @@ export function Stepper({ label, value, min, max, unit, onChange, disabled }: St
         accessibilityValue={{ min, max, now: value, text: `${value} ${unit}` }}
         accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
         onAccessibilityAction={(e) => (e.nativeEvent.actionName === 'increment' ? inc() : dec())}>
-        <Text variant="title" tone={disabled ? 'muted' : 'strong'} align="center">
+        <Text variant="heading" tone={disabled ? 'secondary' : 'default'} numberOfLines={1}>
           {value}
         </Text>
-        <Text variant="caption" tone="secondary" align="center">
+        <Text variant="label" tone="secondary" numberOfLines={1}>
           {unit}
         </Text>
       </View>
-      <IconButton icon="add" label={`Increase ${label}`} onPress={inc} disabled={disabled || value >= max} />
+      <IconButton tone="inset" icon="add" label={`Increase ${label}`} onPress={inc} disabled={disabled || value >= max} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.lg },
-  value: { minWidth: 96 },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[4] },
+  value: { minWidth: 112, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: space[2] },
 });

@@ -1,16 +1,13 @@
-import { Nunito_900Black } from '@expo-google-fonts/nunito';
-import {
-  NunitoSans_500Medium,
-  NunitoSans_600SemiBold,
-  NunitoSans_700Bold,
-  NunitoSans_800ExtraBold,
-} from '@expo-google-fonts/nunito-sans';
+import { Inter_400Regular, Inter_500Medium } from '@expo-google-fonts/inter';
 import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { FlowProvider } from '@/flow/flow-provider';
 import { useAppStore, useHasHydrated } from '@/store/app-store';
 import { AppThemeProvider, useTheme } from '@/theme';
 
@@ -18,13 +15,7 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   // Fonts ship inside the app bundle — no font CDN, no network calls.
-  const [fontsLoaded, fontError] = useFonts({
-    Nunito_900Black,
-    NunitoSans_500Medium,
-    NunitoSans_600SemiBold,
-    NunitoSans_700Bold,
-    NunitoSans_800ExtraBold,
-  });
+  const [fontsLoaded, fontError] = useFonts({ Inter_400Regular, Inter_500Medium });
   const hydrated = useHasHydrated();
   const ready = (fontsLoaded || !!fontError) && hydrated;
 
@@ -35,11 +26,18 @@ export default function RootLayout() {
   if (!ready) return null;
 
   return (
-    <AppThemeProvider>
-      <Navigator />
-    </AppThemeProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <AppThemeProvider>
+        <FlowProvider>
+          <Navigator />
+        </FlowProvider>
+      </AppThemeProvider>
+    </GestureHandlerRootView>
   );
 }
+
+/** Sheets are routes, but they rise over the one page instead of replacing it. */
+const SHEET = { presentation: 'transparentModal', animation: 'none', contentStyle: { backgroundColor: 'transparent' } } as const;
 
 function Navigator() {
   const { scheme, colors } = useTheme();
@@ -49,10 +47,10 @@ function Navigator() {
     ...base,
     colors: {
       ...base.colors,
-      primary: colors.primary,
+      primary: colors.structure,
       background: colors.canvas,
       card: colors.surface,
-      text: colors.text,
+      text: colors.ink,
       border: colors.line,
     },
   };
@@ -63,10 +61,9 @@ function Navigator() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.canvas } }}>
         {/* Flipping `onboarded` (finishing setup, or deleting all data) redirects automatically. */}
         <Stack.Protected guard={onboarded}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="day/[date]" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="settings" />
-          <Stack.Screen name="how-it-works" />
+          <Stack.Screen name="index" />
+          <Stack.Screen name="day/[date]" options={SHEET} />
+          <Stack.Screen name="how-it-works" options={SHEET} />
         </Stack.Protected>
         <Stack.Protected guard={!onboarded}>
           <Stack.Screen name="onboarding" options={{ gestureEnabled: false, animation: 'fade' }} />
@@ -75,3 +72,7 @@ function Navigator() {
     </ThemeProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+});

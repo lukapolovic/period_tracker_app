@@ -2,10 +2,12 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 
-import { border, radius, space, useTheme } from '@/theme';
+import { fonts, radius, space, useTheme, type ColorTokens } from '@/theme';
 
-import { pressStyles } from './button';
 import { Text } from './text';
+
+/** Which log category the chip belongs to; each fills with its own colour when selected. */
+export type ChipCategory = 'neutral' | 'symptom' | 'mood' | 'period';
 
 type ChipProps = {
   label: string;
@@ -13,29 +15,40 @@ type ChipProps = {
   onPress: () => void;
   /** `radio` for one-of-many choices, `checkbox` for toggles, `button` for plain actions. */
   role?: 'checkbox' | 'radio' | 'button';
-  tone?: 'default' | 'period';
+  category?: ChipCategory;
   leading?: ReactNode;
   disabled?: boolean;
   accessibilityHint?: string;
 };
 
-/** Toggle pill. Selection is shown by fill, border and a check mark — never by colour alone. */
+function selectedFill(colors: ColorTokens, category: ChipCategory) {
+  switch (category) {
+    case 'symptom':
+      return { fill: colors.symptom, ink: colors.onSymptom };
+    case 'mood':
+      return { fill: colors.mood, ink: colors.onMood };
+    case 'period':
+      return { fill: colors.period, ink: colors.onPeriod };
+    case 'neutral':
+      return { fill: colors.structure, ink: colors.onStructure };
+  }
+}
+
+/** Soft pill toggle. Selection changes the fill and adds a check mark, so it never relies on colour alone. */
 export function Chip({
   label,
   selected = false,
   onPress,
   role = 'checkbox',
-  tone = 'default',
+  category = 'neutral',
   leading,
   disabled,
   accessibilityHint,
 }: ChipProps) {
   const { colors } = useTheme();
-  const on =
-    tone === 'period'
-      ? { fill: colors.periodWash, edge: colors.period, lip: colors.periodLip, mark: colors.period }
-      : { fill: colors.linkWash, edge: colors.linkBorder, lip: colors.linkBorder, mark: colors.link };
-  const c = selected ? on : { fill: colors.surface, edge: colors.line, lip: colors.line, mark: colors.text };
+  const on = selectedFill(colors, category);
+  const fill = selected ? (disabled ? colors.surfaceAlt : on.fill) : colors.canvas;
+  const ink = disabled ? colors.textSecondary : selected ? on.ink : colors.ink;
 
   return (
     <Pressable
@@ -47,31 +60,24 @@ export function Chip({
       }
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.base,
-        { backgroundColor: c.fill, borderColor: c.edge, borderBottomColor: c.lip },
-        pressed && !disabled ? pressStyles.pressed : pressStyles.raised,
-        disabled && styles.disabled,
-      ]}>
-      {selected ? <Ionicons name="checkmark" size={18} color={c.mark} /> : null}
+      hitSlop={2}
+      style={({ pressed }) => [styles.base, { backgroundColor: fill }, pressed && styles.pressed]}>
+      {selected ? <Ionicons name="checkmark" size={16} color={ink} /> : null}
       {leading}
-      <Text variant="bodyBold" tone={selected ? 'strong' : 'default'} style={styles.label}>
-        {label}
-      </Text>
+      <Text style={[styles.label, { color: ink }]}>{label}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 46,
-    borderRadius: radius.control,
-    borderWidth: border.width,
-    paddingHorizontal: space.md + 2,
+    minHeight: 44,
+    borderRadius: radius.full,
+    paddingHorizontal: space[4],
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.xs + 2,
+    gap: 6,
   },
-  label: { fontSize: 15, lineHeight: 20 },
-  disabled: { opacity: 0.45 },
+  pressed: { transform: [{ scale: 0.96 }] },
+  label: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 20 },
 });

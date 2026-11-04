@@ -1,11 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import type { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useState, type ReactNode } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import Animated, { useAnimatedStyle, useDerivedValue, withSpring } from 'react-native-reanimated';
 
-import { border, radius, space, useTheme } from '@/theme';
+import { fonts, radius, size, space, useTheme } from '@/theme';
 
 import type { IconName } from './button';
-import { Chip } from './chip';
 import { Text } from './text';
 
 type SegmentedProps<T extends string | number> = {
@@ -15,22 +15,45 @@ type SegmentedProps<T extends string | number> = {
   onChange: (value: T) => void;
 };
 
+/** Recessed track with a white thumb that slides to the chosen option. */
 export function Segmented<T extends string | number>({ label, options, value, onChange }: SegmentedProps<T>) {
+  const { colors } = useTheme();
+  const [width, setWidth] = useState(0);
+  const index = options.findIndex((o) => o.value === value);
+  const thumbWidth = width / options.length;
+  const x = useDerivedValue(() => withSpring(index * thumbWidth, { damping: 20, stiffness: 220 }));
+  const thumb = useAnimatedStyle(() => ({ transform: [{ translateX: x.get() }] }));
+
   return (
-    <View accessibilityRole="radiogroup" accessibilityLabel={label} style={styles.wrap}>
-      {options.map((o) => (
-        <Chip
-          key={String(o.value)}
-          role="radio"
-          label={o.label}
-          selected={o.value === value}
-          onPress={() => onChange(o.value)}
-        />
-      ))}
+    <View
+      accessibilityRole="radiogroup"
+      accessibilityLabel={label}
+      onLayout={(e) => setWidth(e.nativeEvent.layout.width - TRACK_PAD * 2)}
+      style={[styles.segmented, { backgroundColor: colors.surfaceAlt }]}>
+      {width > 0 ? (
+        <Animated.View style={[styles.thumb, { width: thumbWidth, backgroundColor: colors.surface }, thumb]} />
+      ) : null}
+      {options.map((o) => {
+        const selected = o.value === value;
+        return (
+          <Pressable
+            key={String(o.value)}
+            accessibilityRole="radio"
+            accessibilityLabel={o.label}
+            accessibilityState={{ checked: selected }}
+            onPress={() => onChange(o.value)}
+            style={styles.segment}>
+            <Text variant="label" tone={selected ? 'default' : 'secondary'} align="center">
+              {o.label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
 
+/** A filled track. The steps of onboarding, nothing else. */
 export function ProgressBar({ value, label }: { value: number; label: string }) {
   const { colors } = useTheme();
   const pct = Math.round(Math.min(1, Math.max(0, value)) * 100);
@@ -39,20 +62,22 @@ export function ProgressBar({ value, label }: { value: number; label: string }) 
       accessibilityRole="progressbar"
       accessibilityLabel={label}
       accessibilityValue={{ min: 0, max: 100, now: pct }}
-      style={[styles.track, { backgroundColor: colors.line }]}>
-      <View style={[styles.fill, { width: `${pct}%`, backgroundColor: colors.primary }]} />
+      style={[styles.track, { backgroundColor: colors.surface }]}>
+      <View style={[styles.fill, { width: `${pct}%`, backgroundColor: colors.ink }]} />
     </View>
   );
 }
 
 type NoticeProps = { icon?: IconName; children: ReactNode; action?: ReactNode };
 
-/** Quiet, inline information — the app never uses pop-ups for this. */
-export function Notice({ icon = 'information-circle-outline', children, action }: NoticeProps) {
+/** Quiet, inline information on a white pill card, marked with a single green dot. Never a pop-up. */
+export function Notice({ icon = 'information', children, action }: NoticeProps) {
   const { colors } = useTheme();
   return (
-    <View style={[styles.notice, { backgroundColor: colors.surfaceAlt, borderColor: colors.line }]}>
-      <Ionicons name={icon} size={22} color={colors.textSecondary} style={styles.noticeIcon} />
+    <View style={[styles.notice, { backgroundColor: colors.surface }]}>
+      <View style={[styles.noticeDot, { backgroundColor: colors.structure }]}>
+        <Ionicons name={icon} size={18} color={colors.onStructure} />
+      </View>
       <View style={styles.noticeBody}>
         {typeof children === 'string' ? <Text variant="body">{children}</Text> : children}
         {action}
@@ -61,25 +86,73 @@ export function Notice({ icon = 'information-circle-outline', children, action }
   );
 }
 
+type BadgeProps = { label: string; dashed?: boolean };
+
+/** A one- or two-word tag. `dashed` marks estimates. */
+export function Badge({ label, dashed }: BadgeProps) {
+  const { colors } = useTheme();
+  return (
+    <View style={[styles.badge, { borderColor: colors.ink }, dashed && styles.dashed]}>
+      <Text style={[styles.badgeText, { color: colors.ink }]}>{label}</Text>
+    </View>
+  );
+}
+
+/** One or two plain sentences, always beside a character, tail pointing down at it. */
+export function SpeechBubble({ children }: { children: string }) {
+  const { colors } = useTheme();
+  return (
+    <View style={[styles.bubble, { backgroundColor: colors.surface }]}>
+      <Text variant="body">{children}</Text>
+      <View style={[styles.tail, { backgroundColor: colors.surface }]} />
+    </View>
+  );
+}
+
 export function SectionTitle({ children }: { children: string }) {
   return (
-    <Text variant="eyebrow" tone="secondary" accessibilityRole="header">
+    <Text variant="label" tone="secondary" accessibilityRole="header">
       {children}
     </Text>
   );
 }
 
+const TRACK_PAD = 4;
+
 const styles = StyleSheet.create({
-  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
-  track: { height: 16, borderRadius: radius.pill, overflow: 'hidden', flex: 1 },
-  fill: { height: '100%', borderRadius: radius.pill },
+  segmented: { flexDirection: 'row', borderRadius: radius.full, padding: TRACK_PAD },
+  thumb: { position: 'absolute', left: TRACK_PAD, top: TRACK_PAD, bottom: TRACK_PAD, borderRadius: radius.full },
+  segment: { flex: 1, minHeight: size.touch, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space[2] },
+  track: { height: 12, borderRadius: radius.full, overflow: 'hidden', flex: 1 },
+  fill: { height: '100%', borderRadius: radius.full },
   notice: {
     flexDirection: 'row',
-    gap: space.md,
-    padding: space.lg,
-    borderRadius: radius.card,
-    borderWidth: border.width,
+    gap: space[3],
+    paddingVertical: space[4],
+    paddingHorizontal: space[5],
+    borderRadius: radius.inset + 8,
+    alignItems: 'flex-start',
   },
-  noticeIcon: { marginTop: 1 },
-  noticeBody: { flex: 1, gap: space.sm, alignItems: 'flex-start' },
+  noticeDot: { width: 32, height: 32, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
+  noticeBody: { flex: 1, gap: space[2], alignItems: 'flex-start', paddingTop: 5 },
+  badge: { borderWidth: 1, borderRadius: radius.small, paddingHorizontal: space[2], paddingVertical: 2 },
+  dashed: { borderStyle: 'dashed' },
+  badgeText: { fontFamily: fonts.medium, fontSize: 13, lineHeight: 18 },
+  bubble: {
+    alignSelf: 'flex-start',
+    maxWidth: 280,
+    borderRadius: radius.inset + 6,
+    paddingHorizontal: space[5],
+    paddingVertical: space[4],
+    marginBottom: 10,
+  },
+  tail: {
+    position: 'absolute',
+    left: 40,
+    bottom: -7,
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    transform: [{ rotate: '45deg' }],
+  },
 });

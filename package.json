@@ -1,16 +1,17 @@
 {
   "name": "period-tracker",
   "version": "1.0.0",
-  "main": "expo-router/entry",
+  "main": "index",
   "dependencies": {
-    "@expo-google-fonts/nunito": "^0.4.2",
-    "@expo-google-fonts/nunito-sans": "^0.4.2",
+    "@expo-google-fonts/inter": "^0.4.2",
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@shopify/react-native-skia": "2.14.0",
     "expo": "~58.0.23",
     "expo-constants": "~58.0.15",
     "expo-font": "~58.0.11",
     "expo-haptics": "~58.0.7",
+    "expo-image": "~58.0.18",
     "expo-linking": "~58.0.16",
     "expo-router": "~58.0.30",
     "expo-splash-screen": "~58.0.13",
@@ -44,7 +45,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "jest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "setup:web": "setup-skia-web public"
   },
   "private": true,
   "jest": {

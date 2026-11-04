@@ -1,12 +1,12 @@
 import { StyleSheet, View } from 'react-native';
 
-import { Card, IconButton, Placeholder, Screen, ScreenHeader, Text } from '@/components/ui';
+import { Card, Placeholder, Text } from '@/components/ui';
+import { Sheet, useSheet } from '@/flow/sheet';
 import { usePrediction } from '@/hooks/use-prediction';
 import { useToday } from '@/hooks/use-today';
 import { RULES, type Prediction } from '@/lib/cycle';
 import { formatRange, plural } from '@/lib/dates';
-import { goBack } from '@/lib/navigation';
-import { space, useTheme } from '@/theme';
+import { radius, space, useTheme } from '@/theme';
 
 /** The transparency screen from §12.3: the user's own numbers, in plain words. */
 function basisText(p: Prediction): string {
@@ -40,8 +40,8 @@ function Bullet({ children }: { children: string }) {
   const { colors } = useTheme();
   return (
     <View style={styles.bullet}>
-      <View style={[styles.dot, { backgroundColor: colors.primary }]} />
-      <Text variant="body" style={styles.bulletText}>
+      <View style={[styles.dot, { backgroundColor: colors.structure }]} />
+      <Text variant="paragraph" style={styles.bulletText}>
         {children}
       </Text>
     </View>
@@ -51,25 +51,18 @@ function Bullet({ children }: { children: string }) {
 export default function HowItWorksScreen() {
   const today = useToday();
   const p = usePrediction(today);
+  const sheet = useSheet();
 
   return (
-    <Screen>
-      <ScreenHeader
-        title="How predictions work"
-        left={<IconButton icon="chevron-back" label="Back" onPress={goBack} />}
-      />
-      <Placeholder kind="illustration" brief="Simple diagram: past cycles → median → likely window" height={150} />
+    <Sheet sheet={sheet} title="How predictions work">
+      <Placeholder brief="A character with a pencil beside a diagram: past cycles, median, likely window" height={150} />
 
       <Card title="Your prediction">
-        <Text variant="body">{basisText(p)}</Text>
+        <Text variant="paragraph">{basisText(p)}</Text>
         {p.next ? (
-          <Text variant="bodyBold" tone="strong">
-            Your next period is likely to start {formatRange(p.next.from, p.next.to)}.
-          </Text>
+          <Text variant="bodyStrong">Your next period is likely to start {formatRange(p.next.from, p.next.to)}.</Text>
         ) : (
-          <Text variant="bodyBold" tone="strong">
-            Log a period and your first prediction appears.
-          </Text>
+          <Text variant="bodyStrong">Log a period and your first prediction appears.</Text>
         )}
       </Card>
 
@@ -80,18 +73,18 @@ export default function HowItWorksScreen() {
       </Card>
 
       <Card title="Good to know">
-        <Text variant="body">
+        <Text variant="paragraph">
           Predictions are estimates based on the cycles you&apos;ve logged — a window, not a promise. This app is not a
           method of contraception and can&apos;t diagnose any condition. If you have concerns about your cycle, talk to
           a healthcare professional.
         </Text>
       </Card>
-    </Screen>
+    </Sheet>
   );
 }
 
 const styles = StyleSheet.create({
-  bullet: { flexDirection: 'row', gap: space.md, alignItems: 'flex-start' },
-  dot: { width: 10, height: 10, borderRadius: 5, marginTop: 7 },
+  bullet: { flexDirection: 'row', gap: space[3], alignItems: 'flex-start' },
+  dot: { width: 10, height: 10, borderRadius: radius.full, marginTop: 8 },
   bulletText: { flex: 1 },
 });

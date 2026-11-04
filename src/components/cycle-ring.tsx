@@ -15,11 +15,12 @@ type CycleRingProps = {
   window: { fromDay: number; toDay: number } | null;
   /** Screen-reader summary of the ring. */
   label: string;
-  size?: number;
+  size: number;
   children?: ReactNode;
 };
 
-const STROKE = 18;
+const TRACK = 11;
+const MARK = 9;
 
 function polar(c: number, r: number, deg: number) {
   const rad = ((deg - 90) * Math.PI) / 180;
@@ -34,61 +35,44 @@ function arcPath(c: number, r: number, from: number, to: number) {
 }
 
 /**
- * The current cycle as a ring: solid period days, a dotted predicted window and a knob for today.
- * Estimates are always dotted, so the ring never relies on colour alone.
+ * The current cycle as a soft ring: logged period days solid, estimates dashed, today an ink bead.
+ * Estimates are always dashed, so the ring never relies on colour alone.
  */
-export function CycleRing({ totalDays, cycleDay, periodDays, window, label, size = 236, children }: CycleRingProps) {
+export function CycleRing({ totalDays, cycleDay, periodDays, window, label, size, children }: CycleRingProps) {
   const { colors } = useTheme();
   const c = size / 2;
-  const r = (size - STROKE) / 2 - 5;
+  const r = c - MARK - 1;
   const perDay = 360 / Math.max(totalDays, 1);
-  // Round caps poke out past the path ends; trim them so neighbouring segments don't touch.
-  const cap = (STROKE / 2 / (2 * Math.PI * r)) * 360 + 1.2;
 
-  const segment = (fromDay: number, toDay: number, color: string, extra?: { dotted?: boolean }) => {
+  const segment = (fromDay: number, toDay: number, dashed: boolean) => {
     if (toDay < fromDay) return null;
-    const from = (fromDay - 1) * perDay + cap;
-    const to = toDay * perDay - cap;
-    const key = `${color}-${fromDay}-${toDay}-${extra?.dotted ? 'd' : 's'}`;
-    if (extra?.dotted) {
-      return (
-        <Path
-          key={key}
-          d={arcPath(c, r, (fromDay - 1) * perDay + 2, toDay * perDay - 2)}
-          stroke={color}
-          strokeWidth={STROKE * 0.42}
-          strokeLinecap="round"
-          strokeDasharray={`0.1 ${STROKE * 0.85}`}
-          fill="none"
-        />
-      );
-    }
-    if (to <= from) {
-      const mid = polar(c, r, ((fromDay - 1 + toDay) / 2) * perDay);
-      return <Circle key={key} cx={mid.x} cy={mid.y} r={STROKE / 2} fill={color} />;
-    }
+    const from = (fromDay - 1) * perDay;
+    const to = Math.min(toDay * perDay, from + 359.9);
     return (
-      <Path key={key} d={arcPath(c, r, from, to)} stroke={color} strokeWidth={STROKE} strokeLinecap="round" fill="none" />
+      <Path
+        key={`${fromDay}-${toDay}-${dashed ? 'd' : 's'}`}
+        d={arcPath(c, r, from, to)}
+        stroke={dashed ? colors.periodLine : colors.period}
+        strokeWidth={dashed ? 5 : TRACK}
+        strokeDasharray={dashed ? '6 7' : undefined}
+        strokeLinecap="round"
+        fill="none"
+      />
     );
   };
 
   const today = cycleDay ?? 0;
   const loggedPeriod = Math.min(periodDays, today);
-  const knob = cycleDay ? polar(c, r, (cycleDay - 0.5) * perDay) : null;
+  const mark = cycleDay ? polar(c, r, (cycleDay - 0.5) * perDay) : null;
 
   return (
     <View accessible accessibilityRole="image" accessibilityLabel={label} style={{ width: size, height: size }}>
       <Svg width={size} height={size}>
-        <Circle cx={c} cy={c} r={r} stroke={colors.line} strokeWidth={STROKE} fill="none" />
-        {window ? segment(window.fromDay, window.toDay, colors.periodWash) : null}
-        {window ? segment(window.fromDay, window.toDay, colors.period, { dotted: true }) : null}
-        {periodDays > today ? segment(today + 1, periodDays, colors.periodWash) : null}
-        {periodDays > today ? segment(today + 1, periodDays, colors.period, { dotted: true }) : null}
-        {today > periodDays ? segment(periodDays + 1, today, colors.primary) : null}
-        {loggedPeriod > 0 ? segment(1, loggedPeriod, colors.period) : null}
-        {knob ? (
-          <Circle cx={knob.x} cy={knob.y} r={STROKE / 2 + 3} fill={colors.surface} stroke={colors.textStrong} strokeWidth={4} />
-        ) : null}
+        <Circle cx={c} cy={c} r={r} stroke={colors.surfaceAlt} strokeWidth={TRACK} fill="none" />
+        {window ? segment(window.fromDay, window.toDay, true) : null}
+        {periodDays > today ? segment(today + 1, periodDays, true) : null}
+        {loggedPeriod > 0 ? segment(1, loggedPeriod, false) : null}
+        {mark ? <Circle cx={mark.x} cy={mark.y} r={MARK} fill={colors.ink} stroke={colors.surface} strokeWidth={3} /> : null}
       </Svg>
       <View style={[StyleSheet.absoluteFill, styles.center]} pointerEvents="box-none">
         {children}
@@ -98,5 +82,5 @@ export function CycleRing({ totalDays, cycleDay, periodDays, window, label, size
 }
 
 const styles = StyleSheet.create({
-  center: { alignItems: 'center', justifyContent: 'center' },
+  center: { alignItems: 'center', justifyContent: 'center', padding: TRACK + MARK },
 });
