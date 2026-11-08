@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import Animated, { interpolateColor, useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Text } from '@/components/ui';
 import { tapFeedback } from '@/lib/haptics';
-import { gutter, maxContentWidth, radius, size, space, useTheme } from '@/theme';
+import { gutter, maxContentWidth, radius, size, space, typeScale, useTheme } from '@/theme';
 
 import { Pages, useFlow } from './flow-provider';
 
@@ -17,6 +16,41 @@ const TABS = [
 ];
 
 const INSET = (size.nav - size.navItem) / 2;
+
+type TabProps = {
+  label: string;
+  page: number;
+  selected: boolean;
+  onPress: () => void;
+};
+
+/** Its label follows the pan like the blob does, so the colour turns as the blob crosses it. */
+function Tab({ label, page, selected, onPress }: TabProps) {
+  const { colors } = useTheme();
+  const { progress } = useFlow();
+  const { ink, onStructure } = colors;
+
+  const tint = useAnimatedStyle(() => ({
+    color: interpolateColor(Math.abs(progress.get() - page), [0.35, 0.65], [onStructure, ink]),
+  }));
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="tab"
+      accessibilityLabel={label}
+      accessibilityState={{ selected }}
+      style={styles.tab}>
+      <Animated.Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        maxFontSizeMultiplier={1.3}
+        style={[typeScale.label, tint]}>
+        {label}
+      </Animated.Text>
+    </Pressable>
+  );
+}
 
 /**
  * The floating white pill. A green blob marks the page in view: it follows the pan itself, stretching
@@ -52,22 +86,7 @@ export function NavBar() {
         style={[styles.bar, { backgroundColor: colors.surface }]}>
         {barWidth > 0 ? <Animated.View style={[styles.blob, { backgroundColor: colors.structure }, blob]} /> : null}
         {TABS.map((tab) => (
-          <Pressable
-            key={tab.label}
-            onPress={() => go(tab.page)}
-            accessibilityRole="tab"
-            accessibilityLabel={tab.label}
-            accessibilityState={{ selected: page === tab.page }}
-            style={styles.tab}>
-            <Text
-              variant="label"
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              maxFontSizeMultiplier={1.3}
-              style={page === tab.page && { color: colors.onStructure }}>
-              {tab.label}
-            </Text>
-          </Pressable>
+          <Tab key={tab.label} {...tab} selected={page === tab.page} onPress={() => go(tab.page)} />
         ))}
       </View>
     </View>

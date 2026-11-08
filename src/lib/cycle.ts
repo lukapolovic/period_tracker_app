@@ -5,6 +5,7 @@
  * 2. Base length L = median of those cycles (onboarding value until 2 exist).
  * 3. Spread V = round(standard deviation), 1–10 days; 3 days until 3 cycles exist.
  * 4. Next period window = last start + L, shown as [start − V, start + V].
+ * 5. Ovulation estimate = next start − 14 days, window = that day − 5 to + 1. Dates only, so always a rough estimate.
  */
 import { addDays, diffDays, type ISODate } from './dates';
 
@@ -29,6 +30,10 @@ export const RULES = {
   maxSpread: 10,
   /** Shortest-to-longest difference that triggers the "cycles vary" note. */
   varyThreshold: 9,
+  /** Days from estimated ovulation to the next period. */
+  lutealDays: 14,
+  ovulationDaysBefore: 5,
+  ovulationDaysAfter: 1,
 } as const;
 
 export type CycleInfo = {
@@ -52,6 +57,13 @@ export type PredictedWindow = {
   spread: number;
 };
 
+export type OvulationWindow = {
+  /** The single most likely day. */
+  day: ISODate;
+  from: ISODate;
+  to: ISODate;
+};
+
 export type PredictionStatus = 'empty' | 'period' | 'upcoming' | 'window' | 'late';
 export type PredictionBasis = 'history' | 'typical' | 'single-cycle' | 'default';
 
@@ -72,6 +84,8 @@ export type Prediction = {
   next: PredictedWindow | null;
   /** Windows to draw on the calendar. */
   upcoming: PredictedWindow[];
+  /** Empty when the estimate is off, or when cycles vary too much for it to mean anything. */
+  ovulation: OvulationWindow[];
   daysUntil: { from: number; to: number } | null;
   daysLate: number | null;
 };
@@ -81,6 +95,7 @@ export type PredictionInput = {
   overrides: Record<ISODate, CycleOverride>;
   typicalCycleLength: number | null;
   typicalPeriodLength: number | null;
+  showOvulation?: boolean;
 };
 
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
@@ -200,6 +215,7 @@ export function predict(input: PredictionInput, today: ISODate): Prediction {
       periodDay: null,
       next: null,
       upcoming: [],
+      ovulation: [],
       daysUntil: null,
       daysLate: null,
     };
@@ -210,6 +226,17 @@ export function predict(input: PredictionInput, today: ISODate): Prediction {
     // Uncertainty compounds for cycles further ahead.
     const s = Math.min(RULES.maxSpread, Math.round(spread * Math.sqrt(k)));
     return { likelyStart, from: addDays(likelyStart, -s), to: addDays(likelyStart, s), spread: s };
+  };
+
+  /** Counts back from a predicted start. A window can't begin before the period it follows is over. */
+  const ovulationFor = (k: number): OvulationWindow | null => {
+    const day = addDays(windowFor(k).likelyStart, -RULES.lutealDays);
+    const periodEnd = k === 1 ? last.end : addDays(last.start, baseLength * (k - 1) + periodLength - 1);
+    const earliest = addDays(periodEnd, 1);
+    const wanted = addDays(day, -RULES.ovulationDaysBefore);
+    const from = wanted < earliest ? earliest : wanted;
+    const to = addDays(day, RULES.ovulationDaysAfter);
+    return from <= to ? { day, from, to } : null;
   };
 
   const next = windowFor(1);
@@ -230,10 +257,19 @@ export function predict(input: PredictionInput, today: ISODate): Prediction {
     next,
     // While late we only show the missed window — anything further out would be a guess.
     upcoming: status === 'late' ? [next] : [1, 2, 3].map(windowFor),
+    ovulation:
+      input.showOvulation && !cyclesVary && status !== 'late'
+        ? [1, 2, 3].map(ovulationFor).filter((w) => w !== null)
+        : [],
     daysUntil:
       status === 'upcoming'
         ? { from: diffDays(next.from, today), to: diffDays(next.to, today) }
         : null,
     daysLate: status === 'late' ? diffDays(today, next.to) : null,
   };
+}
+
+/** The window in progress, or the next one to come. */
+export function nextOvulation(p: Prediction, today: ISODate): OvulationWindow | null {
+  return p.ovulation.find((w) => w.to >= today) ?? null;
 }

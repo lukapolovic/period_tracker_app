@@ -12,7 +12,7 @@ import { openDay, openHowItWorks } from '@/flow/sheet';
 import { Sticker } from '@/flow/sticker';
 import { usePrediction } from '@/hooks/use-prediction';
 import { useToday } from '@/hooks/use-today';
-import { RULES, type Prediction } from '@/lib/cycle';
+import { nextOvulation, RULES, type Prediction } from '@/lib/cycle';
 import { diffDays, formatDay, formatRange, plural } from '@/lib/dates';
 import { tapFeedback } from '@/lib/haptics';
 import { findPeriod } from '@/lib/periods';
@@ -99,6 +99,11 @@ function ringFor(p: Prediction) {
     p.next && p.lastStart
       ? { fromDay: diffDays(p.next.from, p.lastStart) + 1, toDay: diffDays(p.next.to, p.lastStart) + 1 }
       : null;
+  const thisCycle = p.ovulation.find((w) => p.next && w.to < p.next.likelyStart);
+  const ovulation =
+    thisCycle && p.lastStart
+      ? { fromDay: diffDays(thisCycle.from, p.lastStart) + 1, toDay: diffDays(thisCycle.to, p.lastStart) + 1 }
+      : null;
   const totalDays = Math.max(p.baseLength + p.spread, p.cycleDay ?? 0, periodDays, window?.toDay ?? 0);
   const label =
     p.status === 'empty'
@@ -106,9 +111,10 @@ function ringFor(p: Prediction) {
       : [
           `Cycle day ${p.cycleDay}.`,
           `Period on days 1 to ${periodDays}.`,
+          thisCycle ? `Estimated ovulation window ${formatRange(thisCycle.from, thisCycle.to)}.` : '',
           p.next ? `Next period likely ${formatRange(p.next.from, p.next.to)}.` : '',
         ].join(' ');
-  return { periodDays, window, totalDays, label };
+  return { periodDays, window, ovulation, totalDays, label };
 }
 
 export function TodayPage() {
@@ -130,6 +136,7 @@ export function TodayPage() {
   const endedToday = !!current && !current.endEstimated && current.end === today;
   const hero = heroFor(prediction, endedToday);
   const ring = ringFor(prediction);
+  const ovulation = nextOvulation(prediction, today);
 
   const discRadius = Math.min(width * 0.31, 150);
   const heroHeight = discRadius * 2.9;
@@ -179,6 +186,7 @@ export function TodayPage() {
             cycleDay={prediction.cycleDay}
             periodDays={ring.periodDays}
             window={ring.window}
+            ovulation={ring.ovulation}
             label={`${ring.label} ${hero.top} ${hero.big} ${hero.unit ?? ''}. ${hero.line}.`}>
             <Text variant="label" tone="secondary" align="center">
               {hero.top}
@@ -210,6 +218,7 @@ export function TodayPage() {
           </View>
         ) : null}
         {hero.badge ? <Badge label={hero.badge.label} dashed={hero.badge.dashed} /> : null}
+        {ovulation && ovulation.from <= today ? <Badge label="Ovulation estimate" dashed /> : null}
       </Drift>
       {hero.sub && !shortSub ? <Notice>{hero.sub}</Notice> : null}
 
@@ -270,6 +279,20 @@ export function TodayPage() {
         </Card>
       </Drift>
 
+      {ovulation ? (
+        <Drift page={PAGE} amount={0.14}>
+          <Card>
+            <Text variant="label" tone="secondary">
+              Ovulation estimate
+            </Text>
+            <Text variant="headingSm">Likely {formatRange(ovulation.from, ovulation.to)}</Text>
+            <Text variant="body" tone="secondary">
+              A rough estimate from your cycle dates. Not a method of contraception.
+            </Text>
+          </Card>
+        </Drift>
+      ) : null}
+
       {prediction.status !== 'empty' && prediction.earlyEstimate ? (
         <Notice icon="sparkles">Early estimate. Log two periods and predictions become personal.</Notice>
       ) : null}
@@ -312,7 +335,14 @@ const styles = StyleSheet.create({
   cheer: { left: 14, top: 0 },
   skip: { right: 6, top: 46 },
   sparkC: { left: '46%', top: 28 },
-  tags: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: space[2], marginTop: -space[4] },
+  tags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: space[2],
+    marginTop: -space[4],
+  },
   tag: { paddingHorizontal: space[4], paddingVertical: space[2], borderRadius: radius.full },
   actions: { gap: space[3] },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },

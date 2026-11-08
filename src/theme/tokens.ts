@@ -24,6 +24,8 @@ export const palette = {
   forest: '#65a936',
   /** Coral deep enough to work as a line or text on cream and white. */
   emberCoral: '#c9361f',
+  /** Lilac deep enough to work as a line on cream and white. */
+  deepLilac: '#7b3fb0',
 } as const;
 
 export type ColorTokens = {
@@ -48,6 +50,8 @@ export type ColorTokens = {
   /** Period as a thin line or as text: prediction outlines, ring arcs. */
   periodLine: string;
   periodWash: string;
+  /** The ovulation estimate, always as a dotted line. */
+  ovulationLine: string;
   symptom: string;
   onSymptom: string;
   mood: string;
@@ -85,6 +89,7 @@ export const lightColors: ColorTokens = {
   onPeriod: palette.inkBlack,
   periodLine: palette.emberCoral,
   periodWash: '#ffe2dc',
+  ovulationLine: palette.deepLilac,
   symptom: palette.skyPop,
   onSymptom: palette.inkBlack,
   mood: palette.lilac,
@@ -122,6 +127,7 @@ export const darkColors: ColorTokens = {
   onPeriod: palette.inkBlack,
   periodLine: '#ff8b7b',
   periodWash: '#4a2a24',
+  ovulationLine: '#d6a8f5',
   symptom: palette.skyPop,
   onSymptom: palette.inkBlack,
   mood: palette.lilac,

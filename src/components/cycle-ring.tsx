@@ -13,6 +13,8 @@ type CycleRingProps = {
   periodDays: number;
   /** Predicted start window as 1-based day numbers within this cycle. */
   window: { fromDay: number; toDay: number } | null;
+  /** Estimated ovulation window, numbered the same way. */
+  ovulation: { fromDay: number; toDay: number } | null;
   /** Screen-reader summary of the ring. */
   label: string;
   size: number;
@@ -35,10 +37,10 @@ function arcPath(c: number, r: number, from: number, to: number) {
 }
 
 /**
- * The current cycle as a soft ring: logged period days solid, estimates dashed, today an ink bead.
- * Estimates are always dashed, so the ring never relies on colour alone.
+ * The current cycle as a soft ring: logged period days solid, estimates dashed, the ovulation estimate dotted,
+ * today an ink bead. Each has its own shape, so the ring never relies on colour alone.
  */
-export function CycleRing({ totalDays, cycleDay, periodDays, window, label, size, children }: CycleRingProps) {
+export function CycleRing({ totalDays, cycleDay, periodDays, window, ovulation, label, size, children }: CycleRingProps) {
   const { colors } = useTheme();
   const c = size / 2;
   const r = c - MARK - 1;
@@ -69,6 +71,16 @@ export function CycleRing({ totalDays, cycleDay, periodDays, window, label, size
     <View accessible accessibilityRole="image" accessibilityLabel={label} style={{ width: size, height: size }}>
       <Svg width={size} height={size}>
         <Circle cx={c} cy={c} r={r} stroke={colors.surfaceAlt} strokeWidth={TRACK} fill="none" />
+        {ovulation ? (
+          <Path
+            d={arcPath(c, r, (ovulation.fromDay - 1) * perDay, ovulation.toDay * perDay)}
+            stroke={colors.ovulationLine}
+            strokeWidth={5}
+            strokeDasharray="0.1 9"
+            strokeLinecap="round"
+            fill="none"
+          />
+        ) : null}
         {window ? segment(window.fromDay, window.toDay, true) : null}
         {periodDays > today ? segment(today + 1, periodDays, true) : null}
         {loggedPeriod > 0 ? segment(1, loggedPeriod, false) : null}

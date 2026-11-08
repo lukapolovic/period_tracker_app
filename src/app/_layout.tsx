@@ -8,6 +8,7 @@ import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { FlowProvider } from '@/flow/flow-provider';
+import { useReminderSync } from '@/hooks/use-reminders';
 import { useAppStore, useHasHydrated } from '@/store/app-store';
 import { AppThemeProvider, useTheme } from '@/theme';
 
@@ -27,6 +28,7 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={styles.root}>
+      <ReminderSync />
       <AppThemeProvider>
         <FlowProvider>
           <Navigator />
@@ -34,6 +36,12 @@ export default function RootLayout() {
       </AppThemeProvider>
     </GestureHandlerRootView>
   );
+}
+
+/** On its own so a new prediction doesn't re-render the navigator. */
+function ReminderSync() {
+  useReminderSync();
+  return null;
 }
 
 /** Sheets are routes, but they rise over the one page instead of replacing it. */
