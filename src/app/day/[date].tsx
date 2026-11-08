@@ -51,12 +51,10 @@ export default function DayScreen() {
         ? `Cycle day ${diffDays(date, cycleStart) + 1}`
         : null;
 
-  const saveNote = () => {
-    if ((log?.note ?? '') !== note) setNote(date, note);
-  };
-  const done = () => {
-    saveNote();
-    sheet.close();
+  /** Saved as it's typed, so every way out of the sheet keeps it. */
+  const changeNote = (text: string) => {
+    setNoteText(text);
+    setNote(date, text);
   };
   const togglePeriodDay = () => {
     if (period) unmarkPeriodDay(date);
@@ -69,7 +67,7 @@ export default function DayScreen() {
       sheet={sheet}
       eyebrow={date === today ? 'Today' : isFuture ? 'Upcoming' : (status ?? 'Log a day')}
       title={formatDay(date, { weekday: true, month: 'long', year: date.slice(0, 4) !== today.slice(0, 4) })}
-      footer={<Button label="Done" icon="checkmark" onPress={done} />}>
+      footer={<Button label="Done" icon="checkmark" onPress={sheet.close} />}>
       {date === today && status ? (
         <Text variant="bodyStrong" tone="secondary" style={styles.status}>
           {status}
@@ -137,12 +135,9 @@ export default function DayScreen() {
           <Card title="Note">
             <TextInput
               value={note}
-              onChangeText={setNoteText}
+              onChangeText={changeNote}
               onFocus={() => setNoteFocused(true)}
-              onBlur={() => {
-                setNoteFocused(false);
-                saveNote();
-              }}
+              onBlur={() => setNoteFocused(false)}
               placeholder="Anything you want to remember about this day"
               placeholderTextColor={colors.textSecondary}
               multiline
@@ -166,6 +161,8 @@ const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
   note: {
     minHeight: 120,
+    // A long note scrolls inside the field, so the line being typed stays in view above the keyboard.
+    maxHeight: 168,
     borderWidth: 1,
     borderRadius: radius.inset,
     padding: space[4],

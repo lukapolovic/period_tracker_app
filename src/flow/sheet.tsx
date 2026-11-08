@@ -1,6 +1,15 @@
 import { router } from 'expo-router';
-import { useCallback, useEffect, type ReactNode } from 'react';
-import { BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+import {
+  BackHandler,
+  Keyboard,
+  KeyboardAvoidingView,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  type ScrollViewInstance,
+} from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,6 +40,7 @@ export function useSheet() {
   }, [lift, shown, reduceMotion]);
 
   const close = useCallback(() => {
+    Keyboard.dismiss();
     const config = { duration: reduceMotion ? 1 : 340, easing: Easing.bezier(0.5, 0, 0.8, 0.4) };
     lift.set(withTiming(0, config));
     shown.set(
@@ -67,9 +77,16 @@ export function Sheet({ sheet, title, eyebrow, footer, children }: SheetProps) {
   const { height } = useFlow();
   const { shown, close } = sheet;
   const drag = useSharedValue(0);
+  const scroll = useRef<ScrollViewInstance>(null);
 
   const top = insets.top + PEEK;
   const travel = height - top;
+
+  // Text fields sit last in a sheet, so the end is the part to show while the keyboard is up.
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidShow', () => scroll.current?.scrollToEnd());
+    return () => sub.remove();
+  }, []);
 
   const pull = usePanGesture({
     onUpdate: (e) => {
@@ -94,7 +111,8 @@ export function Sheet({ sheet, title, eyebrow, footer, children }: SheetProps) {
         <Pressable accessibilityRole="button" accessibilityLabel="Close" style={styles.fill} onPress={close} />
       </Animated.View>
       <Animated.View style={[styles.sheet, { top, backgroundColor: colors.canvas }, body]}>
-        <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {/* It measures from the sheet, not the screen, hence `top`. The footer's safe-area padding can sit behind the keyboard. */}
+        <KeyboardAvoidingView style={styles.fill} behavior="padding" keyboardVerticalOffset={top - insets.bottom}>
           <GestureDetector gesture={pull}>
             <View style={styles.head}>
               <View style={[styles.handle, { backgroundColor: colors.surfaceAlt }]} />
@@ -114,8 +132,12 @@ export function Sheet({ sheet, title, eyebrow, footer, children }: SheetProps) {
             </View>
           </GestureDetector>
           <ScrollView
+            ref={scroll}
             style={styles.fill}
             contentContainerStyle={[styles.content, { paddingBottom: (footer ? 0 : insets.bottom) + space[8] }]}
+            onContentSizeChange={() => {
+              if (Keyboard.isVisible()) scroll.current?.scrollToEnd();
+            }}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             showsVerticalScrollIndicator={false}>

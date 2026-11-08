@@ -149,7 +149,7 @@ export const useAppStore = create<Data & Actions>()(
           }),
 
         setNote: (date, note) =>
-          set({ logs: updateLog(get().logs, date, (log) => ({ ...log, note })) }),
+          set({ logs: updateLog(get().logs, date, (log) => ({ ...log, note: note.trim() })) }),
 
         setCycleOverride(start, value) {
           const cycleOverrides = { ...get().cycleOverrides };
