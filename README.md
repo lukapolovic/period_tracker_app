@@ -36,14 +36,16 @@ The app is one wide page. The nav bar pans along it; the day log and the explana
 | Stop | What it does |
 | --- | --- |
 | Onboarding (4 steps) | Promise, last period start (or "I don't remember"), typical lengths (or "Not sure"), first prediction |
-| Today | Cycle ring wrapped in a ribbon, next-period window ("16–18 days"), one main button (Period started / ended), quick log chips, undo |
-| Calendar | Month view: logged days solid, predictions dashed; tap any day to log |
+| Today | Cycle ring wrapped in a ribbon, next-period window ("16–18 days"), one main button (Period started / ended), quick log chips, undo, ovulation estimate |
+| Calendar | Month view: logged days solid, predictions dashed, ovulation estimate dotted; tap any day to log |
 | History | Typical cycle, range, period length, cycle-length chart, include/leave out any cycle |
-| Settings | Typical lengths, theme (system/light/dark), week start, delete all data |
+| Settings | Typical lengths, theme (system/light/dark), week start, ovulation estimate, reminders, delete all data |
 | Day log (sheet) | Period day, flow, symptoms, mood, note |
 | How predictions work (sheet) | The user's own numbers explained in plain words |
 
-Predictions follow MARKET_ANALYSIS.md §12.3: median of the last ≤ 6 valid cycles, a ±window from their spread, always shown as a range.
+Predictions follow MARKET_ANALYSIS.md §12.3: median of the last ≤ 6 valid cycles, a ±window from their spread, always shown as a range. The ovulation estimate counts back 14 days from the predicted start, with a window from 5 days before to 1 day after.
+
+Reminders are local notifications, so nothing leaves the phone. They come at 09:00 the day before a predicted period or ovulation window, and at 20:00 on the last day of an ovulation window or the estimated last day of a period in progress. The text stays neutral unless **Settings → Reminders → Say what they're about** is on. To see them without waiting, use **Settings → Developer → Send test reminders**.
 
 ## Where things live
 
@@ -74,5 +76,5 @@ app name is not decided yet — §18.3).
 
 ## Not built yet (from the v1.0 MUST list)
 
-Reminders and discreet notifications · life events (pregnancy, birth, contraception changes) · app lock ·
+Late, supplies and daily-log reminders · choosing a reminder time · life events (pregnancy, birth, contraception changes) · app lock ·
 export/import · encrypted on-device database · custom symptoms · alternate icons · Plus purchase and tip jar.

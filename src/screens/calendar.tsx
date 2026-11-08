@@ -18,11 +18,19 @@ import { radius, space, useTheme } from '@/theme';
 
 const PAGE = Pages.calendar;
 
-function Legend() {
+function Legend({ ovulation }: { ovulation: boolean }) {
   const { colors } = useTheme();
   const items = [
     { label: 'Period', swatch: { backgroundColor: colors.period } },
     { label: 'Predicted', swatch: { borderColor: colors.periodLine, borderWidth: 1.5, borderStyle: 'dashed' as const } },
+    ...(ovulation
+      ? [
+          {
+            label: 'Ovulation estimate',
+            swatch: { borderColor: colors.ovulationLine, borderWidth: 1.5, borderStyle: 'dotted' as const },
+          },
+        ]
+      : []),
     { label: 'Today', swatch: { backgroundColor: colors.structure, borderColor: colors.ink, borderWidth: 1.5 } },
   ];
   return (
@@ -60,12 +68,26 @@ export function CalendarPage() {
     return days;
   }, [prediction.upcoming]);
 
+  const ovulationDays = useMemo(() => {
+    const days = new Set<ISODate>();
+    for (const w of prediction.ovulation) for (const d of eachDay(w.from, w.to)) days.add(d);
+    return days;
+  }, [prediction.ovulation]);
+
   const getDayInfo = (date: ISODate): DayInfo => {
     const isFuture = date > today;
     const inPeriod = !!findPeriod(periods, date);
     return {
       // Period days still to come are estimates, so they're drawn like predictions.
-      mark: inPeriod ? (isFuture ? 'predicted' : 'period') : predicted.has(date) ? 'predicted' : 'none',
+      mark: inPeriod
+        ? isFuture
+          ? 'predicted'
+          : 'period'
+        : predicted.has(date)
+          ? 'predicted'
+          : ovulationDays.has(date)
+            ? 'ovulation'
+            : 'none',
       isToday: date === today,
       hasLog: hasDetails(logs[date]),
       isFuture,
@@ -111,7 +133,7 @@ export function CalendarPage() {
             getDayInfo={getDayInfo}
             onPressDay={openDay}
           />
-          <Legend />
+          <Legend ovulation={ovulationDays.size > 0} />
         </Card>
       </Drift>
 
@@ -126,6 +148,11 @@ export function CalendarPage() {
               <Text variant="body" tone="secondary">
                 Dashed days are estimates. They get more precise as you log more cycles.
               </Text>
+              {ovulationDays.size > 0 ? (
+                <Text variant="body" tone="secondary">
+                  Dotted days are a rough ovulation estimate from your dates. Not a method of contraception.
+                </Text>
+              ) : null}
             </Card>
           </RibbonHop>
         </Drift>

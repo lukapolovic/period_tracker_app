@@ -9,6 +9,7 @@ import { Drift, FlowPage } from '@/flow/flow-page';
 import { useFlow } from '@/flow/flow-provider';
 import { FlowStage } from '@/flow/flow-stage';
 import { Sticker } from '@/flow/sticker';
+import { askForReminders, useReminderPermission } from '@/hooks/use-reminders';
 import { useToday } from '@/hooks/use-today';
 import { predict, RULES } from '@/lib/cycle';
 import { addMonths, formatMonthYear, formatRange, parts, type ISODate } from '@/lib/dates';
@@ -29,6 +30,7 @@ export default function OnboardingScreen() {
   const [cycleLength, setCycleLength] = useState<number | null>(RULES.defaultCycle);
   const [periodLength, setPeriodLength] = useState<number | null>(RULES.defaultPeriod);
   const [cursor, setCursor] = useState(() => parts(today));
+  const permission = useReminderPermission();
 
   useEffect(() => {
     jumpTo(0);
@@ -37,7 +39,10 @@ export default function OnboardingScreen() {
   const next = () => goTo(Math.min(STEPS - 1, step + 1));
   const back = () => goTo(Math.max(0, step - 1));
   // Flipping `onboarded` hands over to the main app (see the protected routes in _layout).
-  const finish = () => completeOnboarding({ lastPeriodStart: lastStart, cycleLength, periodLength });
+  const finish = () => {
+    completeOnboarding({ lastPeriodStart: lastStart, cycleLength, periodLength });
+    askForReminders();
+  };
 
   const preview = predict(
     {
@@ -208,6 +213,12 @@ export default function OnboardingScreen() {
               Tap “Period started” when your next period begins and predictions will take it from there.
             </Text>
           )}
+          {permission !== 'unsupported' ? (
+            <Text variant="body" tone="secondary">
+              We&apos;ll send a quiet reminder the day before your next period and ovulation window. Your phone will
+              ask if that&apos;s okay.
+            </Text>
+          ) : null}
           <Text variant="caption" tone="secondary">
             Predictions are estimates based on the cycles you log. Not a method of contraception.
           </Text>

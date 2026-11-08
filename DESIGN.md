@@ -51,6 +51,7 @@ Colour is decoration, not status. Blue, coral and yellow never mean success, err
 | Sunshine Pop | `#f5e211` | `action`, `ribbonSun` | The one primary button per page, the ribbon around the disc. |
 | Coral Pop | `#ff705d` | `period`, `ribbonCoral` | Logged period days, always with ink text on top. |
 | Ember Coral | `#c9361f` | `periodLine` | Period as a thin line or text: prediction outlines, dashed arcs. |
+| Deep Lilac | `#7b3fb0` | `ovulationLine` | The ovulation estimate, always as a dotted line. |
 | Sky Pop | `#2ba0ff` | `symptom`, `ribbonSky` | Selected symptom chips, ribbons. |
 | Lilac | `#e8c0fc` | `mood` | Selected mood chips, stat tile. Sampled from the art. |
 | Meadow, Forest | `#79c14d`, `#65a936` | `hillMid`, `hillBack` | The field. Sampled from the art. |
@@ -71,6 +72,7 @@ them. Only the ribbons and hills drop a step, so they don't glare at night.
 | `line` | `#474e40` |
 | `ink` / `textSecondary` | `#f5f1e4` / `#b9bcb1` |
 | `periodLine` | `#ff8b7b` |
+| `ovulationLine` | `#d6a8f5` |
 | `ribbonGrass` / `ribbonSky` / `ribbonCoral` / `ribbonSun` | `#4f8f3a` / `#2384d4` / `#e0604f` / `#d9c814` |
 | `hillBack` / `hillMid` / `hillFront` | `#2f5426` / `#3a6a2e` / `#4a8038` |
 
@@ -84,8 +86,10 @@ them. Only the ribbons and hills drop a step, so they don't glare at night.
 | Deep Stone on cream / white | 5.5 / 6.2 |
 | Ink on grass / sun / coral / sky / lilac | 7.7 / 10.3 / 5.1 / 5.0 / 8.7 |
 | Ember Coral on cream / white | 4.6 / 5.2 |
+| Deep Lilac on cream / white | 5.8 / 6.6 |
 | Dark: cream on canvas, secondary on surface | 14.1, 7.0 |
 | Dark: `periodLine` on surface | 5.9 |
+| Dark: `ovulationLine` on surface | 6.9 |
 
 ---
 
@@ -188,6 +192,7 @@ the clock.
   log and How predictions work use it. They're routes (`transparentModal`) so deep links and back keep working.
 - **Snackbar:** ink pill above the nav, with a yellow Undo.
 - **Segmented:** sandstone track with a sliding white thumb.
+- **Toggle:** a label and one line on what it does, with a switch that turns green when on.
 
 ### Data
 
@@ -195,9 +200,21 @@ the clock.
 | --- | --- |
 | Logged period | Solid coral |
 | Predicted | Dashed Ember Coral outline, never a fill |
+| Ovulation estimate | Dotted Deep Lilac outline, never a fill |
 | Today | Green with an ink ring (calendar), ink bead (ring) |
 | Has a log | A small dot |
 | Left out of predictions | Dashed, hollow bar |
+
+### Ovulation and reminders
+
+The ovulation estimate shows as a dotted arc on the ring, dotted days on the calendar, a card under Today's log and an
+"Ovulation estimate" tag during the window. It's on by default and can be turned off in Settings. It's always called a
+rough estimate, and "Not a method of contraception" sits beside it. It disappears when cycles vary too much for dates to
+mean anything, or while a period is late.
+
+Reminders are local notifications: nothing leaves the phone. They arrive at 09:00 the day before a predicted period or
+ovulation window, and at 20:00 on the last day of an ovulation window or the estimated last day of a period in progress.
+The text is neutral unless someone turns on "Say what they're about", so a lock screen gives nothing away.
 
 ---
 
@@ -263,7 +280,7 @@ drifting.
 - Text on a white surface, or in the disc. Never bare on the canvas.
 - One primary button per page.
 - Green is structure. Never text.
-- Predictions are dashed, always.
+- Predictions are dashed, always. The ovulation estimate is dotted.
 - No shadows. No sharp corners. No all-caps.
 - New ribbon shapes go in `world.ts`. Keep knots off screen at rest (the test will tell you).
 - React context doesn't reach inside a Skia `Canvas`: pass `colors` in as a prop.
@@ -274,6 +291,9 @@ drifting.
 ## 12. Open questions for the owner
 
 1. **Final art:** which characters replace the placeholders, and is the red panda still the main character?
-2. **App name and icon:** both still undecided.
+2. **App name and icon:** both still undecided. The lock screen shows the app's name above every reminder, so neutral
+   reminder text only stays discreet with a neutral name.
 3. **Android:** built and checked on the iOS simulator and web only. Needs a pass on a real Android phone, especially
-   how the ribbons perform on a mid-range device.
+   how the ribbons perform on a mid-range device, and how the sheet and reminders behave.
+4. **Ovulation estimate:** on by default is the owner's call, which changes [MARKET_ANALYSIS.md](MARKET_ANALYSIS.md). The
+   legal check it asks for (§8.1) is still to do before launch.

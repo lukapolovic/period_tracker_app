@@ -39,6 +39,7 @@ export default function DayScreen() {
   const period = findPeriod(periods, date);
   const edge = period ? edgeOf(period, date) : null;
   const window = prediction.upcoming.find((w) => w.from <= date && date <= w.to);
+  const ovulation = prediction.ovulation.find((w) => w.from <= date && date <= w.to);
   const cycleStart = sortPeriods(periods)
     .filter((p) => p.start <= date)
     .at(-1)?.start;
@@ -47,9 +48,11 @@ export default function DayScreen() {
     ? `Period day ${diffDays(date, period.start) + 1}${period.endEstimated && date >= period.end ? ', end estimated' : ''}`
     : window
       ? `Period likely to start ${formatRange(window.from, window.to)}`
-      : cycleStart && !isFuture
-        ? `Cycle day ${diffDays(date, cycleStart) + 1}`
-        : null;
+      : ovulation
+        ? 'Ovulation window, a rough estimate'
+        : cycleStart && !isFuture
+          ? `Cycle day ${diffDays(date, cycleStart) + 1}`
+          : null;
 
   /** Saved as it's typed, so every way out of the sheet keeps it. */
   const changeNote = (text: string) => {
@@ -68,7 +71,7 @@ export default function DayScreen() {
       eyebrow={date === today ? 'Today' : isFuture ? 'Upcoming' : (status ?? 'Log a day')}
       title={formatDay(date, { weekday: true, month: 'long', year: date.slice(0, 4) !== today.slice(0, 4) })}
       footer={<Button label="Done" icon="checkmark" onPress={sheet.close} />}>
-      {date === today && status ? (
+      {(date === today || isFuture) && status ? (
         <Text variant="bodyStrong" tone="secondary" style={styles.status}>
           {status}
         </Text>

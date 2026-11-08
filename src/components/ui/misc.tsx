@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, View } from 'react-native';
 import Animated, { useAnimatedStyle, useDerivedValue, withSpring } from 'react-native-reanimated';
 
 import { fonts, radius, size, space, useTheme } from '@/theme';
@@ -53,6 +53,40 @@ export function Segmented<T extends string | number>({ label, options, value, on
   );
 }
 
+type ToggleProps = {
+  label: string;
+  /** What it does, in a line. */
+  hint: string;
+  value: boolean;
+  onChange: (value: boolean) => void;
+  disabled?: boolean;
+};
+
+/** A setting that's either on or off. */
+export function Toggle({ label, hint, value, onChange, disabled }: ToggleProps) {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.toggle}>
+      <View style={styles.toggleText}>
+        <Text variant="bodyStrong">{label}</Text>
+        <Text variant="caption" tone="secondary">
+          {hint}
+        </Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        disabled={disabled}
+        accessibilityLabel={label}
+        accessibilityHint={hint}
+        trackColor={{ false: colors.surfaceAlt, true: colors.structure }}
+        ios_backgroundColor={colors.surfaceAlt}
+        thumbColor={colors.actionDot}
+      />
+    </View>
+  );
+}
+
 /** A filled track. The steps of onboarding, nothing else. */
 export function ProgressBar({ value, label }: { value: number; label: string }) {
   const { colors } = useTheme();
@@ -92,7 +126,7 @@ type BadgeProps = { label: string; dashed?: boolean };
 export function Badge({ label, dashed }: BadgeProps) {
   const { colors } = useTheme();
   return (
-    <View style={[styles.badge, { borderColor: colors.ink }, dashed && styles.dashed]}>
+    <View style={[styles.badge, { borderColor: colors.ink, backgroundColor: colors.surface }, dashed && styles.dashed]}>
       <Text style={[styles.badgeText, { color: colors.ink }]}>{label}</Text>
     </View>
   );
@@ -123,6 +157,8 @@ const styles = StyleSheet.create({
   segmented: { flexDirection: 'row', borderRadius: radius.full, padding: TRACK_PAD },
   thumb: { position: 'absolute', left: TRACK_PAD, top: TRACK_PAD, bottom: TRACK_PAD, borderRadius: radius.full },
   segment: { flex: 1, minHeight: size.touch, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space[2] },
+  toggle: { flexDirection: 'row', alignItems: 'center', gap: space[4], minHeight: size.touch },
+  toggleText: { flex: 1, gap: 2 },
   track: { height: 12, borderRadius: radius.full, overflow: 'hidden', flex: 1 },
   fill: { height: '100%', borderRadius: radius.full },
   notice: {

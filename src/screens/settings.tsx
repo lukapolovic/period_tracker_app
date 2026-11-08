@@ -1,15 +1,18 @@
 import Constants from 'expo-constants';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 
 import { LengthSetting } from '@/components/length-setting';
-import { Button, Card, SectionTitle, Segmented, Text, TextButton } from '@/components/ui';
+import { Button, Card, SectionTitle, Segmented, Text, TextButton, Toggle } from '@/components/ui';
 import { Drift, FlowPage } from '@/flow/flow-page';
 import { Pages, useFlow } from '@/flow/flow-provider';
 import { openHowItWorks } from '@/flow/sheet';
 import { Sticker } from '@/flow/sticker';
+import { askForReminders, useReminderPermission } from '@/hooks/use-reminders';
 import { useToday } from '@/hooks/use-today';
 import { RULES } from '@/lib/cycle';
+import { sendTestReminders } from '@/lib/notifications';
+import { sampleBodies } from '@/lib/reminders';
 import { useAppStore, type ThemePreference } from '@/store/app-store';
 import { space } from '@/theme';
 
@@ -34,6 +37,12 @@ export function SettingsPage() {
   const deleteAllData = useAppStore((s) => s.deleteAllData);
   const loadDemoData = useAppStore((s) => s.loadDemoData);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const permission = useReminderPermission();
+
+  const toggleReminders = (reminders: boolean) => {
+    updateSettings({ reminders });
+    if (reminders && permission === 'undetermined') askForReminders();
+  };
 
   return (
     <FlowPage index={PAGE}>
@@ -81,6 +90,48 @@ export function SettingsPage() {
           />
         </Card>
       </Drift>
+
+      <Drift page={PAGE} amount={0.1}>
+        <Card title="Ovulation">
+          <Toggle
+            label="Show ovulation estimate"
+            hint="A rough estimate from your cycle dates, on Today and the calendar. Not a method of contraception."
+            value={settings.showOvulation}
+            onChange={(showOvulation) => updateSettings({ showOvulation })}
+          />
+        </Card>
+      </Drift>
+
+      {permission !== 'unsupported' ? (
+        <Drift page={PAGE} amount={0.105}>
+          <Card title="Reminders">
+            <Toggle
+              label="Send reminders"
+              hint="The day before your period and ovulation window, and when each is likely over."
+              value={settings.reminders && permission === 'granted'}
+              disabled={permission === 'denied'}
+              onChange={toggleReminders}
+            />
+            <Toggle
+              label="Say what they're about"
+              hint="Off keeps the text neutral, so your lock screen gives nothing away."
+              value={settings.detailedReminders}
+              onChange={(detailedReminders) => updateSettings({ detailedReminders })}
+            />
+            {permission === 'denied' ? (
+              <View style={styles.start}>
+                <Text variant="body" tone="secondary">
+                  Notifications are off for this app in your phone&apos;s settings.
+                </Text>
+                <TextButton label="Open phone settings" onPress={() => Linking.openSettings()} />
+              </View>
+            ) : null}
+            <Text variant="caption" tone="secondary">
+              Reminders are set on this phone. Nothing is sent anywhere.
+            </Text>
+          </Card>
+        </Drift>
+      ) : null}
 
       <Drift page={PAGE} amount={0.11}>
         <Sticker name="folder" page={PAGE} width={84} drift={-0.2} style={styles.folder} />
@@ -132,6 +183,14 @@ export function SettingsPage() {
               goTo(Pages.today);
             }}
           />
+          {permission === 'granted' ? (
+            <Button
+              variant="secondary"
+              label="Send test reminders"
+              icon="notifications"
+              onPress={() => sendTestReminders(sampleBodies(settings.detailedReminders))}
+            />
+          ) : null}
         </Card>
       ) : null}
     </FlowPage>

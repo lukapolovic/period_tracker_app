@@ -4,8 +4,9 @@ import { Card, Placeholder, Text } from '@/components/ui';
 import { Sheet, useSheet } from '@/flow/sheet';
 import { usePrediction } from '@/hooks/use-prediction';
 import { useToday } from '@/hooks/use-today';
-import { RULES, type Prediction } from '@/lib/cycle';
-import { formatRange, plural } from '@/lib/dates';
+import { nextOvulation, RULES, type Prediction } from '@/lib/cycle';
+import { formatRange, plural, type ISODate } from '@/lib/dates';
+import { useAppStore } from '@/store/app-store';
 import { radius, space, useTheme } from '@/theme';
 
 /** The transparency screen from §12.3: the user's own numbers, in plain words. */
@@ -26,6 +27,14 @@ function basisText(p: Prediction): string {
     case 'default':
       return `We don't know your cycle length yet, so we start from ${p.baseLength} days — a common starting point, even though only about 1 in 8 real cycles is exactly 28 days.`;
   }
+}
+
+function ovulationText(p: Prediction, today: ISODate): string {
+  const usually = `Ovulation usually comes about ${RULES.lutealDays} days before a period.`;
+  const w = nextOvulation(p, today);
+  if (w) return `${usually} Counting back from your predicted start gives a window of ${formatRange(w.from, w.to)}.`;
+  if (p.cyclesVary) return `${usually} Your cycles vary a lot right now, so dates alone can't give a useful estimate.`;
+  return `${usually} Your estimate appears here once there's a next period to count back from.`;
 }
 
 const METHOD = [
@@ -51,6 +60,7 @@ function Bullet({ children }: { children: string }) {
 export default function HowItWorksScreen() {
   const today = useToday();
   const p = usePrediction(today);
+  const showOvulation = useAppStore((s) => s.settings.showOvulation);
   const sheet = useSheet();
 
   return (
@@ -71,6 +81,16 @@ export default function HowItWorksScreen() {
           <Bullet key={line}>{line}</Bullet>
         ))}
       </Card>
+
+      {showOvulation ? (
+        <Card title="Ovulation estimate">
+          <Text variant="paragraph">{ovulationText(p, today)}</Text>
+          <Text variant="paragraph">
+            This is a rough estimate from dates alone. Real timing differs from person to person and cycle to cycle,
+            and this app can&apos;t detect ovulation. It is not a method of contraception.
+          </Text>
+        </Card>
+      ) : null}
 
       <Card title="Good to know">
         <Text variant="paragraph">

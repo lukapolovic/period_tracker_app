@@ -125,7 +125,7 @@ Signature features that make the positioning demonstrable (and filmable for shor
 
 ### 1.6 Recommended v1.0 scope (summary — the full spec is in §12)
 
-**In v1.0:** onboarding without sign-up · Today view and calendar · log period start/end and daily flow · symptoms, mood and notes (customisable list) · prediction engine with ranges · local reminders (period due, late check-in, supplies, daily log) with discreet text · app lock · life events · history and simple stats · export/import and "delete all data" · light/dark themes · accessibility · optional fertile-window estimate (off by default, enabled only after a legal check) · one optional "Plus" one-time purchase + tip jar.
+**In v1.0:** onboarding without sign-up · Today view and calendar · log period start/end and daily flow · symptoms, mood and notes (customisable list) · prediction engine with ranges · local reminders (period due, late check-in, supplies, daily log) with discreet text · app lock · life events · history and simple stats · export/import and "delete all data" · light/dark themes · accessibility · optional fertile-window estimate (on by default, legal check before launch) · one optional "Plus" one-time purchase + tip jar.
 
 **Out of v1.0:** accounts and cloud sync, partner sharing, community, articles, AI chat, pregnancy and trying-to-conceive modes, any contraception claim, ads.
 
@@ -143,7 +143,7 @@ Signature features that make the positioning demonstrable (and filmable for shor
 | Platforms | iOS and Android at launch, one cross-platform codebase |
 | Languages | English only at launch (app stays localisation-ready) |
 | Money | Free core + one-time Plus + optional tip jar; **no ads** |
-| Fertile window | Built, **off by default**, enabled only after a legal check |
+| Fertile window | Built, **on by default** (owner's decision, 5 Nov 2026), legal check before launch |
 | Marketing | Owner creates the content, **faceless** format |
 | Name | To be decided — before store accounts, icon and screenshots |
 | Teens | No teen-specific focus in v1; standard age rating |
@@ -374,7 +374,7 @@ Legend: ✓ = offered · ✗ = not offered · "n/a" = not advertised / not verif
 | Feature | Flo | Clue | Period Calendar | Apple Health | My Cycle | Lunavi | **Our v1.0** |
 |---|---|---|---|---|---|---|---|
 | Period prediction | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ **with a range** |
-| Fertile window / ovulation estimate | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | Optional, **off by default** (pending legal check) |
+| Fertile window / ovulation estimate | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | Optional, **on by default** (pending legal check) |
 | Period reminders | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Discreet / custom notification text | n/a | n/a | ✓ | ✗ | n/a | ✓ | ✓ **by default** |
 | Birth-control / pill reminders | ✓ (separate product, may need subscription) | ✓ | ✓ (6 methods) | Via Medications feature | n/a | n/a | v1.1 |
@@ -475,7 +475,7 @@ Sources: store screenshots and listings, 1 Nov 2026 [V][S5][S7][S9][S63–S66].
 | 4 | **Inaccurate predictions — especially irregular cycles and new users** | Clue, App Store, 2021: a teen's predictions were weeks off for about a year before improving. UW study: apps handle irregular cycles poorly and don't let people correct predictions or record reasons [V][S7][S41] | All | High | Ranges instead of single dates; plain explanation; fast adaptation; easy corrections (§12.3) |
 | 5 | **Life events break predictions** | Clue, App Store, Aug 2025: no way to record a birth; after pregnancy the app treated 10 months as one "cycle" and flagged normal breastfeeding irregularity as a problem; predictions still skewed a year later. Support's workaround: manually hide that cycle [V][S7] | Clue (and most apps) | Medium–High for affected users (and emotionally sensitive) | **Life events** (pregnancy, birth, pregnancy loss, start/stop hormonal contraception, breastfeeding) that pause and reset predictions automatically |
 | 6 | **Bloat and lack of control** | Clue, App Store: a redesign removed the ability to choose what to track, forcing users through dozens of irrelevant options (later improved). Flo, Google Play, Mar 2025 (189 helpful): wants to skip the chatbot and add custom symptoms. Leaders are 307–348 MB on iOS [V][S6][S7] | Flo, Clue, Period Calendar | Medium | Short default list; hide/show any item; custom items; < 40 MB app |
-| 7 | **Assumptions and tone** | UW study: assumptions about gender, partners and fertility goals; pink, flowery designs that some found insulting. A Clue reviewer praises it for *not* being stereotypically feminine [S41][V][S7] | Flo, Period Calendar, clones | Medium | Neutral design, inclusive language, fertility features off unless switched on |
+| 7 | **Assumptions and tone** | UW study: assumptions about gender, partners and fertility goals; pink, flowery designs that some found insulting. A Clue reviewer praises it for *not* being stereotypically feminine [S41][V][S7] | Flo, Period Calendar, clones | Medium | Neutral design, inclusive language, fertility features easy to switch off |
 | 8 | **Accounts, backup and data loss** | Flo, Google Play, Sep 2026: stuck logged into the wrong account, had to reinstall twice. *My Cycle*, App Store, Sep 2026: iCloud backup requires manual "update" and warns about "replacing" data, which confused the user [V][S6][S66] | Flo, My Cycle | Medium (but a catastrophic experience when it happens) | No account; OS backup on by default; one clear "Back up / Restore" screen with plain wording and confirmations |
 | 9 | **Notifications that embarrass or market** | Period Calendar sells *customisable discreet reminder text* (so reminders don't embarrass people in public) as a feature — evidence of demand [V][S10]. Flo sends discount offers through push notifications [V][S20] | Flo, Clue | Medium | Discreet text by default; user-editable; quiet hours; **never** marketing notifications |
 | 10 | **Can't pay** | Teens, students and users in lower-income markets rely on free tiers; Clue reviewer (Sep 2026) notes younger users depended on now-paywalled features [V][S8]; ad-supported apps dominate price-sensitive storefronts (§3.3) | Flo, Clue | Medium | Everything essential is free; Plus is optional and cosmetic/convenience |
@@ -598,7 +598,7 @@ General consumer surveys about "subscription fatigue" point in different directi
 |---|---|---|---|
 | Logging and displaying user-entered cycle data (calendar, diary) | Low-risk / general wellness | A simple cycle diary that only stores and displays entered data may not be a device [S57] | ✓ Core of v1 |
 | Predicting the next period from past dates | General wellness if no medical claims [S55] | Generally not a device without a medical purpose [S57] | ✓ With disclaimers |
-| Fertile window "for information only" | Grey zone — depends entirely on how it is marketed | Grey zone; marketed to help conception it can become a (Class I) device [S57] | Optional, **off by default**, no conception or contraception wording; legal check before launch |
+| Fertile window "for information only" | Grey zone — depends entirely on how it is marketed | Grey zone; marketed to help conception it can become a (Class I) device [S57] | Optional, **on by default** (owner's decision, 5 Nov 2026), no conception or contraception wording; legal check before launch |
 | "Use as birth control", "safe days", "prevent pregnancy" | Medical device (Natural Cycles needed FDA clearance) | **Class IIb** device (MDR Rule 15) requiring a notified body; Swiss court: an app usable for contraception is a device; German app Ovy certified Class IIb in 2025 [S56] | ✗ **Never** |
 | "Helps you get pregnant", conception-optimised predictions, temperature- or LH-based ovulation detection | Device risk | Device risk (Class I or higher) [S57] | ✗ Not in v1 |
 | Flagging conditions (PCOS, endometriosis) or "abnormal cycle" alerts | Device risk (diagnosis) | Device risk | ✗ Never. Generic "talk to a healthcare professional" text only |
@@ -851,7 +851,7 @@ Warm, plain, a little witty; never clinical, never fearful, never patronising. I
 
 | ID | Feature | Notes |
 |---|---|---|
-| F-18 | Optional fertile-window estimate — **decided: build in v1.0** | Behind a switch, **off by default**; dotted style + "estimate" label; disabled automatically when cycles vary a lot or a hormonal-contraception event is active; the switch is shown to users only after the legal check (§8.1) |
+| F-18 | Optional fertile-window estimate — **decided: build in v1.0** | Behind a switch, **on by default** (owner's decision, 5 Nov 2026); dotted style + "estimate" label; disabled automatically when cycles vary a lot or a hormonal-contraception event is active; legal check still needed before launch (§8.1) |
 | F-19 | Panic wipe | Deliberate flow (Settings → PIN → confirm) to avoid accidental loss |
 
 **v1.1 — planned for 1–3 months after launch**
@@ -918,12 +918,12 @@ Warm, plain, a little witty; never clinical, never fearful, never patronising. I
 
 | ID | Reminder | Default | Timing |
 |---|---|---|---|
-| N1 | Period coming | **On** | 2 days before the window starts (configurable 0–7), at the user's chosen time (default 09:00) |
+| N1 | Period coming | **On** | 1 day before the window starts, at 09:00 (owner's decision, 5 Nov 2026; choosing the time comes later) |
 | N2 | Supplies restock | Offered in onboarding | 4 days before the window starts |
 | N3 | Late check-in | **On** | Window end + 2 days; repeats at most twice, every 2 days, then stops |
-| N4 | Period-end check | Off | Predicted period length + 2 days, if no end is logged |
+| N4 | Period end | **On** | 20:00 on the estimated last day, if no end is logged (owner's decision, 5 Nov 2026) |
 | N5 | Daily log reminder | Off | User-chosen time |
-| N6 | Fertile-window estimate | Off | Only if F-18 is enabled |
+| N6 | Fertile-window estimate | **On** | 09:00 the day before it opens and 20:00 on its last day, only if F-18 is enabled (owner's decision, 5 Nov 2026) |
 | N7 | Pill reminder | – | v1.1 |
 
 **Text**
@@ -1362,7 +1362,7 @@ Recorded on 1 November 2026 after walking through the open questions. The "Recom
 | D4 | Platforms | Both, cross-platform | **Both, one cross-platform codebase** | ✅ As recommended |
 | D5 | Launch languages | English + 3–5 others | **English only** (localisation-ready) | ⚠️ Differs — see §18.2 |
 | D6 | Monetisation | Free core + one-time Plus | **Free core + one-time Plus + optional tip jar; no ads** | ✅ As recommended (+ tip jar) |
-| D7 | Fertile-window estimate | Build, off by default, legal check | **Build, off by default, legal check** | ✅ As recommended |
+| D7 | Fertile-window estimate | Build, off by default, legal check | **Build, on by default, legal check before launch** | Changed by the owner, 5 Nov 2026 |
 | D8 | Marketing | Owner on camera | **Owner creates the content, faceless** | ⚠️ Differs — see §18.2 |
 | D9 | App name | Shortlist + trademark check | **Decide later** | ⏳ Needed before store accounts, icon and screenshots |
 | D10 | Teens | No teen focus, standard rating | **No teen focus, standard rating** | ✅ As recommended |

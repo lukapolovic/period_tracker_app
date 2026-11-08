@@ -22,6 +22,11 @@ export type Settings = {
   typicalPeriodLength: number | null;
   theme: ThemePreference;
   weekStartsOn: 0 | 1;
+  showOvulation: boolean;
+  /** The phone's own notification permission still has the last word. */
+  reminders: boolean;
+  /** Off keeps reminder text neutral on the lock screen. */
+  detailedReminders: boolean;
 };
 
 type Data = {
@@ -65,6 +70,9 @@ const initialData: Data = {
     typicalPeriodLength: 5,
     theme: 'system',
     weekStartsOn: 1,
+    showOvulation: true,
+    reminders: true,
+    detailedReminders: false,
   },
 };
 
@@ -170,8 +178,13 @@ export const useAppStore = create<Data & Actions>()(
     },
     {
       name: 'period-tracker',
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => AsyncStorage),
+      // Version 2 added settings. Saved settings win, so only the new ones take their defaults.
+      migrate: (saved) => {
+        const data = saved as Data;
+        return { ...data, settings: { ...initialData.settings, ...data.settings } };
+      },
       partialize: ({ periods, logs, cycleOverrides, settings }) => ({
         periods,
         logs,

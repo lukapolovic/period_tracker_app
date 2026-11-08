@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { predict, predictedPeriodLength, type Period, type PredictionInput } from '../cycle';
+import { nextOvulation, predict, predictedPeriodLength, type Period, type PredictionInput } from '../cycle';
 import { addDays, diffDays, formatRange, monthMatrix } from '../dates';
 
 /** Builds confirmed periods from a first start and the cycle lengths that follow it. */
@@ -164,5 +164,57 @@ describe('dates', () => {
     expect(formatRange('2026-03-03', '2026-03-06')).toBe('3–6 Mar');
     expect(formatRange('2026-11-28', '2026-12-04')).toBe('28 Nov – 4 Dec');
     expect(formatRange('2026-12-28', '2027-01-03')).toBe('28 Dec 2026 – 3 Jan 2027');
+  });
+});
+
+describe('ovulation estimate', () => {
+  const regular = history('2026-05-01', [28, 28, 28, 28, 28, 28]);
+  const last = regular[regular.length - 1].start;
+  const on = (periods: Period[], today: string, extra: Partial<PredictionInput> = {}) =>
+    predict(input(periods, { showOvulation: true, ...extra }), today);
+
+  it('counts back 14 days from the predicted start, with a window of 5 days before to 1 day after', () => {
+    const [w] = on(regular, addDays(last, 3)).ovulation;
+    expect(w.day).toBe(addDays(last, 14));
+    expect(w.from).toBe(addDays(last, 9));
+    expect(w.to).toBe(addDays(last, 15));
+  });
+
+  it('covers the same three cycles as the period predictions', () => {
+    const p = on(regular, addDays(last, 3));
+    expect(p.ovulation.map((w) => w.day)).toEqual([14, 42, 70].map((n) => addDays(last, n)));
+    expect(p.upcoming).toHaveLength(3);
+  });
+
+  it('stays off unless asked for', () => {
+    expect(predict(input(regular), addDays(last, 3)).ovulation).toEqual([]);
+  });
+
+  it('gives no estimate when cycles vary too much for dates alone to mean anything', () => {
+    const p = on(history('2026-02-01', [24, 36, 25, 35, 26, 34]), '2026-08-01');
+    expect(p.cyclesVary).toBe(true);
+    expect(p.ovulation).toEqual([]);
+  });
+
+  it('gives no estimate before a first period, or while a period is late', () => {
+    expect(on([], '2026-11-03').ovulation).toEqual([]);
+    const late = on(regular, addDays(last, 40));
+    expect(late.status).toBe('late');
+    expect(late.ovulation).toEqual([]);
+  });
+
+  it('never starts a window before the period it follows has ended', () => {
+    const short = history('2026-05-01', [20, 20, 20, 20, 20, 20], 7);
+    const start = short[short.length - 1].start;
+    const [first, second] = on(short, addDays(start, 8)).ovulation;
+    expect(first.from).toBe(addDays(start, 7));
+    expect(second.from).toBe(addDays(start, 27));
+  });
+
+  it('finds the window in progress, then the next one', () => {
+    const p = on(regular, addDays(last, 3));
+    const [first, second] = p.ovulation;
+    expect(nextOvulation(p, first.to)).toBe(first);
+    expect(nextOvulation(p, addDays(first.to, 1))).toBe(second);
   });
 });

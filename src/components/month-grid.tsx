@@ -4,8 +4,8 @@ import { Text } from '@/components/ui';
 import { formatDay, monthMatrix, parts, weekdayInitials, type ISODate } from '@/lib/dates';
 import { fonts, radius, space, useTheme } from '@/theme';
 
-/** `period` = logged (solid fill); `predicted` = estimate (dashed outline) — never colour-only. */
-export type DayMark = 'none' | 'period' | 'predicted';
+/** `period` = logged (solid fill); `predicted` = estimate (dashed outline); `ovulation` = rough estimate (dotted). Never colour-only. */
+export type DayMark = 'none' | 'period' | 'predicted' | 'ovulation';
 
 export type DayInfo = {
   mark: DayMark;
@@ -55,6 +55,7 @@ function describe(date: ISODate, info: DayInfo): string {
   if (info.isToday) bits.push('today');
   if (info.mark === 'period') bits.push('period day');
   if (info.mark === 'predicted') bits.push('predicted period');
+  if (info.mark === 'ovulation') bits.push('estimated ovulation window');
   if (info.hasLog) bits.push('has a log');
   return bits.join(', ');
 }
@@ -65,9 +66,11 @@ function DayCell({ date, info, onPress }: { date: ISODate; info: DayInfo; onPres
   const outline =
     info.mark === 'predicted'
       ? { borderColor: colors.periodLine, borderStyle: 'dashed' as const }
-      : info.isToday
-        ? { borderColor: colors.ink }
-        : { borderColor: 'transparent' };
+      : info.mark === 'ovulation'
+        ? { borderColor: colors.ovulationLine, borderStyle: 'dotted' as const }
+        : info.isToday
+          ? { borderColor: colors.ink }
+          : { borderColor: 'transparent' };
   const fill = isPeriod ? colors.period : info.isToday ? colors.structure : 'transparent';
   const textColor = isPeriod
     ? colors.onPeriod
