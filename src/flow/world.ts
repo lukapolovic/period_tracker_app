@@ -7,6 +7,12 @@
  */
 import type { ColorTokens } from '@/theme';
 
+/**
+ * The world is drawn for this many pages: the ribbons run to about 3.7 screens, there's a knot in each gap between
+ * pages, and the field has flowers and a character for each page. FlowStage takes exactly this many pages.
+ */
+export const WORLD_PAGES = 4;
+
 export type RibbonPoint = readonly [x: number, y: number];
 
 /** A stretch of a ribbon, as control point indices. */

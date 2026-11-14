@@ -6,14 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tapFeedback } from '@/lib/haptics';
 import { gutter, maxContentWidth, radius, size, space, typeScale, useTheme } from '@/theme';
 
-import { Pages, useFlow } from './flow-provider';
-
-const TABS = [
-  { label: 'Today', page: Pages.today },
-  { label: 'Calendar', page: Pages.calendar },
-  { label: 'History', page: Pages.history },
-  { label: 'Settings', page: Pages.settings },
-];
+import { useFlow } from './flow-provider';
+import { STOPS } from './stops';
 
 const INSET = (size.nav - size.navItem) / 2;
 
@@ -62,10 +56,10 @@ export function NavBar() {
   const insets = useSafeAreaInsets();
   const { progress, page, goTo } = useFlow();
   const [barWidth, setBarWidth] = useState(0);
-  const tabWidth = (barWidth - INSET * 2) / TABS.length;
+  const tabWidth = (barWidth - INSET * 2) / STOPS.length;
 
   const blob = useAnimatedStyle(() => {
-    const p = Math.min(Math.max(progress.get(), 0), TABS.length - 1);
+    const p = Math.min(Math.max(progress.get(), 0), STOPS.length - 1);
     const between = Math.abs(p - Math.round(p));
     return {
       width: tabWidth + between * 26,
@@ -85,8 +79,8 @@ export function NavBar() {
         onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
         style={[styles.bar, { backgroundColor: colors.surface }]}>
         {barWidth > 0 ? <Animated.View style={[styles.blob, { backgroundColor: colors.structure }, blob]} /> : null}
-        {TABS.map((tab) => (
-          <Tab key={tab.label} {...tab} selected={page === tab.page} onPress={() => go(tab.page)} />
+        {STOPS.map((stop, i) => (
+          <Tab key={stop.key} label={stop.label} page={i} selected={page === i} onPress={() => go(i)} />
         ))}
       </View>
     </View>

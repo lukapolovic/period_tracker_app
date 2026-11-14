@@ -6,7 +6,6 @@ import { usePrediction } from '@/hooks/use-prediction';
 import { useToday } from '@/hooks/use-today';
 import { nextOvulation, RULES, type Prediction } from '@/lib/cycle';
 import { formatRange, plural, type ISODate } from '@/lib/dates';
-import { useAppStore } from '@/store/app-store';
 import { radius, space, useTheme } from '@/theme';
 
 /** The transparency screen from §12.3: the user's own numbers, in plain words. */
@@ -33,8 +32,16 @@ function ovulationText(p: Prediction, today: ISODate): string {
   const usually = `Ovulation usually comes about ${RULES.lutealDays} days before a period.`;
   const w = nextOvulation(p, today);
   if (w) return `${usually} Counting back from your predicted start gives a window of ${formatRange(w.from, w.to)}.`;
-  if (p.cyclesVary) return `${usually} Your cycles vary a lot right now, so dates alone can't give a useful estimate.`;
-  return `${usually} Your estimate appears here once there's a next period to count back from.`;
+  switch (p.ovulationGap) {
+    case 'cycles-vary':
+      return `${usually} Your cycles vary a lot right now, so dates alone can't give a useful estimate.`;
+    case 'late':
+      return `${usually} While your period is late there's no predicted start to count back from, so the estimate comes back once it starts.`;
+    case 'no-room':
+      return `${usually} With your cycle and period lengths, counting back lands inside your period, so dates alone can't place a window.`;
+    default:
+      return `${usually} Your estimate appears here once you've logged a period.`;
+  }
 }
 
 const METHOD = [
@@ -60,7 +67,6 @@ function Bullet({ children }: { children: string }) {
 export default function HowItWorksScreen() {
   const today = useToday();
   const p = usePrediction(today);
-  const showOvulation = useAppStore((s) => s.settings.showOvulation);
   const sheet = useSheet();
 
   return (
@@ -82,7 +88,7 @@ export default function HowItWorksScreen() {
         ))}
       </Card>
 
-      {showOvulation ? (
+      {p.ovulationGap !== 'off' ? (
         <Card title="Ovulation estimate">
           <Text variant="paragraph">{ovulationText(p, today)}</Text>
           <Text variant="paragraph">

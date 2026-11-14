@@ -18,6 +18,7 @@ export default function RootLayout() {
   // Fonts ship inside the app bundle — no font CDN, no network calls.
   const [fontsLoaded, fontError] = useFonts({ Inter_400Regular, Inter_500Medium });
   const hydrated = useHasHydrated();
+  const theme = useAppStore((s) => s.settings.theme);
   const ready = (fontsLoaded || !!fontError) && hydrated;
 
   useEffect(() => {
@@ -29,7 +30,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <ReminderSync />
-      <AppThemeProvider>
+      <AppThemeProvider preference={theme}>
         <FlowProvider>
           <Navigator />
         </FlowProvider>

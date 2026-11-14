@@ -77,11 +77,6 @@ export function weekdayOf(iso: ISODate): number {
   return new Date(toUTC(iso)).getUTCDay();
 }
 
-export function addMonths(year: number, monthIndex: number, delta: number) {
-  const total = year * 12 + monthIndex + delta;
-  return { year: Math.floor(total / 12), monthIndex: ((total % 12) + 12) % 12 };
-}
-
 /** Weeks of the month as rows of 7; days outside the month are null. */
 export function monthMatrix(year: number, monthIndex: number, weekStartsOn: 0 | 1): (ISODate | null)[][] {
   const first = makeISO(year, monthIndex, 1);

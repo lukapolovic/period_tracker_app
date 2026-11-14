@@ -1,26 +1,17 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { nextOvulation, predict, predictedPeriodLength, type Period, type PredictionInput } from '../cycle';
+import { history, input } from '../__fixtures__/cycles';
+import {
+  buildCycles,
+  nextOvulation,
+  overrideFor,
+  predict,
+  predictedPeriodLength,
+  RULES,
+  type Period,
+  type PredictionInput,
+} from '../cycle';
 import { addDays, diffDays, formatRange, monthMatrix } from '../dates';
-
-/** Builds confirmed periods from a first start and the cycle lengths that follow it. */
-function history(firstStart: string, cycleLengths: number[], periodLength = 5): Period[] {
-  const periods: Period[] = [];
-  let start = firstStart;
-  for (const len of [...cycleLengths, 0]) {
-    periods.push({ start, end: addDays(start, periodLength - 1), endEstimated: false });
-    start = addDays(start, len);
-  }
-  return periods;
-}
-
-const input = (periods: Period[], extra: Partial<PredictionInput> = {}): PredictionInput => ({
-  periods,
-  overrides: {},
-  typicalCycleLength: null,
-  typicalPeriodLength: null,
-  ...extra,
-});
 
 describe('predict', () => {
   it('returns an empty prediction with no periods', () => {
@@ -128,7 +119,28 @@ describe('predict', () => {
   });
 });
 
+describe('overrideFor', () => {
+  it('stores a choice only where it differs from the default, and buildCycles reads it back as asked', () => {
+    // A 12-day cycle is out of range, a 28-day one is normal.
+    for (const length of [12, 28]) {
+      for (const counted of [true, false]) {
+        const periods = history('2026-01-01', [length, 28]);
+        const outOfRange = length === 12;
+        const choice = overrideFor(outOfRange, counted);
+        const overrides = choice ? { [periods[0].start]: choice } : {};
+        expect(buildCycles(periods, overrides)[0].included).toBe(counted);
+        expect(choice === null).toBe(counted === !outOfRange);
+      }
+    }
+  });
+});
+
 describe('predictedPeriodLength', () => {
+  it('stays within the period lengths you can enter', () => {
+    expect(predictedPeriodLength([], 40)).toBe(RULES.maxPeriod);
+    expect(predictedPeriodLength([], 0)).toBe(RULES.minPeriod);
+  });
+
   it('uses confirmed lengths only', () => {
     const periods: Period[] = [
       { start: '2026-08-01', end: '2026-08-04', endEstimated: false },
@@ -216,5 +228,35 @@ describe('ovulation estimate', () => {
     const [first, second] = p.ovulation;
     expect(nextOvulation(p, first.to)).toBe(first);
     expect(nextOvulation(p, addDays(first.to, 1))).toBe(second);
+  });
+});
+
+describe('ovulation gap', () => {
+  const regular = history('2026-05-01', [28, 28, 28, 28, 28, 28]);
+  const last = regular[regular.length - 1].start;
+  const gap = (periods: Period[], today: string, extra: Partial<PredictionInput> = {}) =>
+    predict(input(periods, { showOvulation: true, ...extra }), today).ovulationGap;
+
+  it('is empty while there is a window today or to come', () => {
+    expect(gap(regular, addDays(last, 3))).toBeNull();
+  });
+
+  it('says the estimate is off, whatever else is true', () => {
+    expect(gap(regular, addDays(last, 3), { showOvulation: false })).toBe('off');
+    expect(gap([], '2026-11-03', { showOvulation: false })).toBe('off');
+  });
+
+  it('says why there is no estimate: no period yet, cycles that vary, or a late period', () => {
+    expect(gap([], '2026-11-03')).toBe('no-period');
+    expect(gap(history('2026-02-01', [24, 36, 25, 35, 26, 34]), '2026-08-01')).toBe('cycles-vary');
+    expect(gap(regular, addDays(last, 40))).toBe('late');
+  });
+
+  it('says when counting back lands inside the period, so no window fits', () => {
+    // 20-day cycles with 9-day periods: 14 days before the next start is still day 7 of the period.
+    const short = history('2026-05-01', [20, 20, 20, 20, 20, 20], 9);
+    const p = predict(input(short, { showOvulation: true }), addDays(short[short.length - 1].start, 9));
+    expect(p.ovulation).toEqual([]);
+    expect(p.ovulationGap).toBe('no-room');
   });
 });

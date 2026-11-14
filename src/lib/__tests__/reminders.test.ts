@@ -1,8 +1,17 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 
 import { predict, type Period } from '../cycle';
 import { addDays } from '../dates';
-import { buildReminders, type ReminderKind } from '../reminders';
+import { createReminderSync } from '../reminder-sync';
+import {
+  buildReminders,
+  plannedReminders,
+  reminderStatus,
+  type Reminder,
+  type ReminderDevice,
+  type ReminderKind,
+  type ReminderPermission,
+} from '../reminders';
 
 const start = '2026-11-02';
 const inProgress: Period = { start, end: addDays(start, 4), endEstimated: true };
@@ -76,5 +85,101 @@ describe('buildReminders', () => {
     expect(first(detailed, 'ovulation-soon').body).toBe('Your estimated ovulation window starts tomorrow.');
     expect(first(detailed, 'ovulation-over').body).toBe('Your estimated ovulation window ends today.');
     expect(first(detailed, 'period-over').body).toBe('Your period is likely ending today.');
+  });
+});
+
+describe('reminderStatus', () => {
+  it('is on only when the setting is on and the phone allows it', () => {
+    expect(reminderStatus(true, 'granted')).toBe('on');
+    expect(reminderStatus(false, 'granted')).toBe('off');
+    expect(reminderStatus(true, 'undetermined')).toBe('off');
+  });
+
+  it('lets the phone have the last word', () => {
+    expect(reminderStatus(true, 'denied')).toBe('blocked');
+    expect(reminderStatus(true, 'unsupported')).toBe('unsupported');
+  });
+});
+
+describe('plannedReminders', () => {
+  const p = prediction([inProgress], start);
+  const now = morningOf(start);
+  const on = { reminders: true, detailedReminders: false };
+
+  it('plans the reminders while they are on', () => {
+    expect(plannedReminders(p, on, 'granted', now)).toEqual(buildReminders(p, false, now));
+  });
+
+  it('plans nothing when they are off, blocked or not yet allowed', () => {
+    expect(plannedReminders(p, { ...on, reminders: false }, 'granted', now)).toEqual([]);
+    expect(plannedReminders(p, on, 'denied', now)).toEqual([]);
+    expect(plannedReminders(p, on, 'undetermined', now)).toEqual([]);
+  });
+});
+
+/** A phone that keeps its schedule in memory. */
+function memoryDevice(permission: ReminderPermission, fail = false) {
+  const schedules: Reminder[][] = [];
+  const device: ReminderDevice = {
+    getPermission: async () => permission,
+    requestPermission: async () => permission,
+    replaceScheduled: async (reminders) => {
+      if (fail) throw new Error('no space left');
+      schedules.push(reminders);
+    },
+    sendTest: async () => {},
+  };
+  return { device, schedules };
+}
+
+describe('createReminderSync', () => {
+  const list = buildReminders(prediction([inProgress], start), false, morningOf(start));
+
+  it('schedules the latest plan', async () => {
+    const { device, schedules } = memoryDevice('granted');
+    await createReminderSync(device)(list);
+    expect(schedules).toEqual([list]);
+  });
+
+  it('schedules nothing without permission, and clears what was there', async () => {
+    const { device, schedules } = memoryDevice('denied');
+    await createReminderSync(device)(list);
+    expect(schedules).toEqual([[]]);
+  });
+
+  it('skips plans that were replaced before the phone got to them', async () => {
+    const { device, schedules } = memoryDevice('granted');
+    const sync = createReminderSync(device);
+    sync(list.slice(0, 1));
+    sync(list.slice(0, 2));
+    await sync(list);
+    expect(schedules).toEqual([list.slice(0, 1), list]);
+  });
+
+  it('never lets a failed schedule get in the way of the app', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const { device } = memoryDevice('granted', true);
+    await expect(createReminderSync(device)(list)).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('tries again on the next change, even after a phone call that failed straight away', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const { device, schedules } = memoryDevice('granted');
+    let calls = 0;
+    const flaky: ReminderDevice = {
+      ...device,
+      getPermission: () => {
+        calls += 1;
+        if (calls === 1) throw new Error('not ready');
+        return Promise.resolve<ReminderPermission>('granted');
+      },
+    };
+    const sync = createReminderSync(flaky);
+    await sync(list);
+    await sync(list);
+    expect(schedules).toEqual([list]);
+    warn.mockRestore();
   });
 });

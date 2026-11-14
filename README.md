@@ -2,6 +2,7 @@
 
 A calm, private period tracker — no account, no ads, data stays on the phone.
 Scope and reasoning live in [MARKET_ANALYSIS.md](MARKET_ANALYSIS.md) (§12 MVP spec, §12.3 prediction engine, §13 design).
+The words the code uses (cycle record, day status, stops…) are defined in [CONTEXT.md](CONTEXT.md).
 
 Built with Expo (SDK 58) + React Native + TypeScript — one codebase for iOS and Android.
 
@@ -24,7 +25,7 @@ npm run setup:web
 In development builds, **Settings → Developer → Load demo data** fills the app with seven months of sample cycles.
 
 ```bash
-npm test           # prediction engine + period editing unit tests
+npm test           # unit tests: predictions, the cycle record, day status, reminders, the world's shape
 npm run typecheck
 npm run lint
 ```
@@ -54,8 +55,10 @@ src/app/          routes: the one page, onboarding and the two sheets
 src/screens/      the four stops on the page
 src/flow/         the world: pager, ribbons, knots, field, nav, sheets
 src/components/   UI pieces; src/components/ui/ holds the design-system primitives
-src/lib/          pure logic: cycle.ts (predictions), periods.ts (editing), dates.ts
-src/store/        app state, saved on the device only
+src/lib/          pure logic: cycle.ts (predictions), record.ts (the cycle record and every edit to it),
+                  day-status.ts (what a date is in the cycle), reminders.ts (what to remind about), dates.ts
+src/hooks/        React hooks over that logic, including the reminders module (use-reminders.ts)
+src/store/        app state, saved on the device only: loads, applies record edits, saves
 src/theme/        design tokens (colours, type, spacing) for light and dark
 ```
 

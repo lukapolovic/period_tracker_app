@@ -5,7 +5,7 @@ import { useDerivedValue, type SharedValue } from 'react-native-reanimated';
 import type { ColorTokens } from '@/theme';
 
 import { ART } from './art';
-import { PAGE_COUNT } from './flow-provider';
+import { WORLD_PAGES } from './world';
 
 /** Height of each hill above the bottom of the screen, at rest and when a page reaches its end. */
 export const FIELD = {
@@ -244,7 +244,7 @@ type CloudsProps = {
 /** Slides down over the status bar as a page scrolls away from its top, and away again when it returns. */
 export function Clouds({ colors, width, topInset, progress, scrollY }: CloudsProps) {
   const depth = topInset + 2;
-  const path = useMemo(() => cloudPath(width * (PAGE_COUNT + 1), depth), [width, depth]);
+  const path = useMemo(() => cloudPath(width * (WORLD_PAGES + 1), depth), [width, depth]);
   const transform = useDerivedValue(() => {
     const shown = Math.min(Math.max(scrollY.get() / 44, 0), 1);
     return [{ translateX: -progress.get() * width * 0.3 }, { translateY: -(depth + 26) * (1 - shown) }];
@@ -274,7 +274,7 @@ type FieldProps = {
  * they grow when a page reaches its end.
  */
 export function Field({ colors, width, height, bottomInset, progress, rise, lift, sway }: FieldProps) {
-  const length = width * (PAGE_COUNT + 1);
+  const length = width * (WORLD_PAGES + 1);
   const hills = useMemo(
     () => ({
       back: hillPath(11, length, [90, 170], [38, 58]),

@@ -1,19 +1,30 @@
 /**
  * App state, persisted on this device only (AsyncStorage). No network, no account.
- * TODO(v1): move to an encrypted on-device database (MARKET_ANALYSIS.md §12.5).
+ *
+ * An adapter: it loads the cycle record and settings, applies edits through the record module — which holds every
+ * rule about what the record may contain — and saves. TODO(v1): move to an encrypted on-device database
+ * (MARKET_ANALYSIS.md §12.5); only this file should need to change.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import { predictedPeriodLength, type CycleOverride, type Flow, type Period } from '@/lib/cycle';
+import type { CycleOverride, Period } from '@/lib/cycle';
 import type { ISODate } from '@/lib/dates';
 import { demoData } from '@/lib/demo';
-import { isEmptyLog, toggleIn, type DayLog } from '@/lib/log';
-import * as edits from '@/lib/periods';
-
-export type ThemePreference = 'system' | 'light' | 'dark';
+import {
+  applyEdit,
+  EMPTY_RECORD,
+  normalizeRecord,
+  undoChange,
+  type Change,
+  type CycleRecord,
+  type DayLog,
+  type EditContext,
+  type RecordEdit,
+} from '@/lib/record';
+import type { ThemePreference } from '@/theme';
 
 export type Settings = {
   onboarded: boolean;
@@ -29,41 +40,30 @@ export type Settings = {
   detailedReminders: boolean;
 };
 
+export type OnboardingAnswers = {
+  lastPeriodStart: ISODate | null;
+  cycleLength: number | null;
+  periodLength: number | null;
+};
+
 type Data = {
-  periods: Period[];
-  logs: Record<ISODate, DayLog>;
-  /** Keyed by cycle start date. */
-  cycleOverrides: Record<ISODate, CycleOverride>;
+  record: CycleRecord;
   settings: Settings;
 };
 
-export type Snapshot = Pick<Data, 'periods' | 'logs'>;
-
 type Actions = {
-  completeOnboarding(input: {
-    lastPeriodStart: ISODate | null;
-    cycleLength: number | null;
-    periodLength: number | null;
-  }): void;
-  markPeriodDay(date: ISODate): void;
-  unmarkPeriodDay(date: ISODate): void;
-  endPeriodOn(date: ISODate): void;
-  setFlow(date: ISODate, flow: Flow | null): void;
-  toggleSymptom(date: ISODate, id: string): void;
-  toggleMood(date: ISODate, id: string): void;
-  setNote(date: ISODate, note: string): void;
-  setCycleOverride(start: ISODate, value: CycleOverride | null): void;
+  /** Applies one edit to the record. Pass the change it returns to `undo` to take just that edit back. */
+  apply(edit: RecordEdit): Change;
+  undo(change: Change): void;
+  /** Saves the answers and starts the record from them. Flipping `onboarded` hands over to the main app. */
+  completeOnboarding(answers: OnboardingAnswers): void;
   updateSettings(patch: Partial<Settings>): void;
-  snapshot(): Snapshot;
-  restore(snapshot: Snapshot): void;
   loadDemoData(today: ISODate): void;
   deleteAllData(): void;
 };
 
 const initialData: Data = {
-  periods: [],
-  logs: {},
-  cycleOverrides: {},
+  record: EMPTY_RECORD,
   settings: {
     onboarded: false,
     typicalCycleLength: 28,
@@ -76,121 +76,63 @@ const initialData: Data = {
   },
 };
 
-function updateLog(
-  logs: Record<ISODate, DayLog>,
-  date: ISODate,
-  update: (log: DayLog) => DayLog,
-): Record<ISODate, DayLog> {
-  const next = update(logs[date] ?? {});
-  const copy = { ...logs };
-  if (isEmptyLog(next)) delete copy[date];
-  else copy[date] = next;
-  return copy;
-}
+const contextOf = (settings: Settings): EditContext => ({ typicalPeriodLength: settings.typicalPeriodLength });
 
-/** Light/medium/heavy flow can't exist outside a period — drop it when days leave a period. */
-function reconcileFlows(periods: Period[], logs: Record<ISODate, DayLog>) {
-  let next = logs;
-  for (const [date, log] of Object.entries(logs)) {
-    if (edits.isPeriodFlow(log.flow) && !edits.findPeriod(periods, date)) {
-      next = updateLog(next, date, ({ flow: _drop, ...rest }) => rest);
-    }
-  }
-  return next;
+/** Before version 3 the record's parts sat at the top level. Version 2 added settings. */
+type SavedBeforeV3 = {
+  periods?: Period[];
+  logs?: Record<ISODate, DayLog>;
+  cycleOverrides?: Record<ISODate, CycleOverride>;
+};
+
+function migrate(saved: unknown, version: number): Data {
+  const data = saved as Partial<Data> & SavedBeforeV3;
+  const record =
+    version < 3
+      ? { periods: data.periods ?? [], logs: data.logs ?? {}, overrides: data.cycleOverrides ?? {} }
+      : (data.record ?? EMPTY_RECORD);
+  return {
+    // Older versions could leave a cycle's "Count in predictions" choice behind when its first day moved.
+    record: normalizeRecord(record),
+    // Saved settings win, so only settings added since take their defaults.
+    settings: { ...initialData.settings, ...data.settings },
+  };
 }
 
 export const useAppStore = create<Data & Actions>()(
   persist(
-    (set, get) => {
-      const typicalLength = () =>
-        predictedPeriodLength(get().periods, get().settings.typicalPeriodLength);
+    (set, get) => ({
+      ...initialData,
 
-      const editPeriods = (fn: (periods: Period[]) => Period[]) => {
-        const periods = fn(get().periods);
-        set({ periods, logs: reconcileFlows(periods, get().logs) });
-      };
+      apply(edit) {
+        const before = get().record;
+        const after = applyEdit(before, edit, contextOf(get().settings));
+        if (after !== before) set({ record: after });
+        return { before, after };
+      },
 
-      return {
-        ...initialData,
+      undo: (change) => set({ record: undoChange(get().record, change) }),
 
-        completeOnboarding({ lastPeriodStart, cycleLength, periodLength }) {
-          const settings = {
-            ...get().settings,
-            onboarded: true,
-            typicalCycleLength: cycleLength,
-            typicalPeriodLength: periodLength,
-          };
-          const periods = lastPeriodStart
-            ? edits.markPeriodDay(
-                get().periods,
-                lastPeriodStart,
-                predictedPeriodLength(get().periods, periodLength),
-              )
-            : get().periods;
-          set({ settings, periods });
-        },
+      completeOnboarding({ lastPeriodStart, cycleLength, periodLength }) {
+        const { record, settings } = get();
+        set({
+          record: applyEdit(record, { type: 'start-from-answers', lastPeriodStart, periodLength }, contextOf(settings)),
+          settings: { ...settings, onboarded: true, typicalCycleLength: cycleLength, typicalPeriodLength: periodLength },
+        });
+      },
 
-        markPeriodDay: (date) => editPeriods((p) => edits.markPeriodDay(p, date, typicalLength())),
-        unmarkPeriodDay: (date) => editPeriods((p) => edits.unmarkPeriodDay(p, date)),
-        endPeriodOn: (date) => editPeriods((p) => edits.endPeriodOn(p, date)),
+      updateSettings: (patch) => set({ settings: { ...get().settings, ...patch } }),
 
-        setFlow(date, flow) {
-          if (flow && edits.isPeriodFlow(flow) && !edits.findPeriod(get().periods, date)) {
-            get().markPeriodDay(date);
-          }
-          set({
-            logs: updateLog(get().logs, date, (log) => ({ ...log, flow: flow ?? undefined })),
-          });
-        },
+      loadDemoData: (today) => set({ record: demoData(today) }),
 
-        toggleSymptom: (date, id) =>
-          set({
-            logs: updateLog(get().logs, date, (log) => ({
-              ...log,
-              symptoms: toggleIn(log.symptoms, id),
-            })),
-          }),
-
-        toggleMood: (date, id) =>
-          set({
-            logs: updateLog(get().logs, date, (log) => ({ ...log, moods: toggleIn(log.moods, id) })),
-          }),
-
-        setNote: (date, note) =>
-          set({ logs: updateLog(get().logs, date, (log) => ({ ...log, note: note.trim() })) }),
-
-        setCycleOverride(start, value) {
-          const cycleOverrides = { ...get().cycleOverrides };
-          if (value) cycleOverrides[start] = value;
-          else delete cycleOverrides[start];
-          set({ cycleOverrides });
-        },
-
-        updateSettings: (patch) => set({ settings: { ...get().settings, ...patch } }),
-
-        snapshot: () => ({ periods: get().periods, logs: get().logs }),
-        restore: (snapshot) => set(snapshot),
-
-        loadDemoData: (today) => set({ ...demoData(today), cycleOverrides: {} }),
-
-        deleteAllData: () => set(initialData),
-      };
-    },
+      deleteAllData: () => set(initialData),
+    }),
     {
       name: 'period-tracker',
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => AsyncStorage),
-      // Version 2 added settings. Saved settings win, so only the new ones take their defaults.
-      migrate: (saved) => {
-        const data = saved as Data;
-        return { ...data, settings: { ...initialData.settings, ...data.settings } };
-      },
-      partialize: ({ periods, logs, cycleOverrides, settings }) => ({
-        periods,
-        logs,
-        cycleOverrides,
-        settings,
-      }),
+      migrate,
+      partialize: ({ record, settings }) => ({ record, settings }),
     },
   ),
 );

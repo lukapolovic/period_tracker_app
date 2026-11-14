@@ -10,21 +10,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { gutter, maxContentWidth, space } from '@/theme';
 
 import { FIELD_CLEARANCE } from './field';
-import { useFlow } from './flow-provider';
+import { useFlow, usePageIndex } from './flow-provider';
 
 /** How far from the end of a page the field starts to grow. */
 const RISE_DISTANCE = 240;
 
 type FlowPageProps = {
-  index: number;
   children: ReactNode;
   /** Floating content pinned to the page, e.g. a snackbar. */
   overlay?: ReactNode;
 };
 
-/** One stop on the pan: a transparent scroll view, so the ribbons show through. */
-export function FlowPage({ index, children, overlay }: FlowPageProps) {
+/** One stop on the pan: a transparent scroll view, so the ribbons show through. Its index comes from FlowStage. */
+export function FlowPage({ children, overlay }: FlowPageProps) {
   const insets = useSafeAreaInsets();
+  const index = usePageIndex();
   const { offsets, ends, page } = useFlow();
   const inView = page === index;
 
@@ -86,7 +86,6 @@ export function FlowPage({ index, children, overlay }: FlowPageProps) {
 }
 
 type DriftProps = {
-  page: number;
   /**
    * Share of a page width this element trails behind the pan. Positive feels further away,
    * negative rushes ahead of the page.
@@ -101,7 +100,8 @@ type DriftProps = {
 };
 
 /** Gives an element its own speed, so a page moves in layers instead of as one sheet. */
-export function Drift({ page, amount = 0.1, scroll = 0, arrive = false, style, children }: DriftProps) {
+export function Drift({ amount = 0.1, scroll = 0, arrive = false, style, children }: DriftProps) {
+  const page = usePageIndex();
   const { progress, width, offsets, reduceMotion } = useFlow();
   const motion = useAnimatedStyle(() => {
     if (reduceMotion) return {};

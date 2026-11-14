@@ -2,7 +2,7 @@ import type { SkPathBuilder } from '@shopify/react-native-skia';
 import { useEffect, useMemo } from 'react';
 import { useFrameCallback, useSharedValue, type SharedValue } from 'react-native-reanimated';
 
-import type { Flow } from './flow-provider';
+import type { FlowState } from './flow-provider';
 import type { RibbonSpec } from './world';
 
 /** Everything the frame loop needs, flattened so a frame touches only plain number arrays. */
@@ -79,7 +79,7 @@ function restState(layout: Layout, cam: number, scroll: number, liftBy: number):
  * The ribbon physics. Each control point chases its target on a soft spring; how far it lags becomes a
  * sideways bend, so a line curves as it moves and relaxes when it stops. Idle frames do nothing.
  */
-export function useRibbonSim(specs: RibbonSpec[], flow: Flow): SharedValue<RibbonState> {
+export function useRibbonSim(specs: RibbonSpec[], flow: FlowState): SharedValue<RibbonState> {
   const { width, height, progress, scrollY, lift, reduceMotion } = flow;
   const layout = useMemo(() => flatten(specs, width, height), [specs, width, height]);
   const liftBy = height * 0.34;

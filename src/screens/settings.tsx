@@ -5,18 +5,16 @@ import { Linking, StyleSheet, View } from 'react-native';
 import { LengthSetting } from '@/components/length-setting';
 import { Button, Card, SectionTitle, Segmented, Text, TextButton, Toggle } from '@/components/ui';
 import { Drift, FlowPage } from '@/flow/flow-page';
-import { Pages, useFlow } from '@/flow/flow-provider';
+import { useFlow } from '@/flow/flow-provider';
 import { openHowItWorks } from '@/flow/sheet';
 import { Sticker } from '@/flow/sticker';
-import { askForReminders, useReminderPermission } from '@/hooks/use-reminders';
+import { Pages } from '@/flow/stops';
+import { sendTestReminders, setDetailedReminders, setRemindersOn, useReminders } from '@/hooks/use-reminders';
 import { useToday } from '@/hooks/use-today';
 import { RULES } from '@/lib/cycle';
-import { sendTestReminders } from '@/lib/notifications';
-import { sampleBodies } from '@/lib/reminders';
-import { useAppStore, type ThemePreference } from '@/store/app-store';
-import { space } from '@/theme';
+import { useAppStore } from '@/store/app-store';
+import { space, type ThemePreference } from '@/theme';
 
-const PAGE = Pages.settings;
 
 const THEMES: { value: ThemePreference; label: string }[] = [
   { value: 'system', label: 'System' },
@@ -37,20 +35,16 @@ export function SettingsPage() {
   const deleteAllData = useAppStore((s) => s.deleteAllData);
   const loadDemoData = useAppStore((s) => s.loadDemoData);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const permission = useReminderPermission();
-
-  const toggleReminders = (reminders: boolean) => {
-    updateSettings({ reminders });
-    if (reminders && permission === 'undetermined') askForReminders();
-  };
+  const reminders = useReminders();
+  const hasReminders = reminders.status !== 'unsupported';
 
   return (
-    <FlowPage index={PAGE}>
+    <FlowPage>
       <View style={styles.stage}>
-        <Sticker name="sit" page={PAGE} width={width * 0.3} drift={-0.16} style={styles.sitter} />
+        <Sticker name="sit" width={width * 0.3} drift={-0.16} style={styles.sitter} />
       </View>
 
-      <Drift page={PAGE} amount={0.06}>
+      <Drift amount={0.06}>
         <Card>
           <Text variant="headingLg" accessibilityRole="header">
             Settings
@@ -70,15 +64,15 @@ export function SettingsPage() {
             label="Period length"
             value={settings.typicalPeriodLength}
             fallback={RULES.defaultPeriod}
-            min={1}
-            max={14}
+            min={RULES.minPeriod}
+            max={RULES.maxPeriod}
             onChange={(typicalPeriodLength) => updateSettings({ typicalPeriodLength })}
           />
         </Card>
       </Drift>
 
-      <Drift page={PAGE} amount={0.09} style={styles.gap}>
-        <Sticker name="dial" page={PAGE} width={56} drift={-0.2} rotate={-10} style={styles.dial} />
+      <Drift amount={0.09} style={styles.gap}>
+        <Sticker name="dial" width={56} drift={-0.2} rotate={-10} style={styles.dial} />
         <Card title="Appearance">
           <Segmented label="Theme" options={THEMES} value={settings.theme} onChange={(theme) => updateSettings({ theme })} />
           <SectionTitle>Week starts on</SectionTitle>
@@ -91,34 +85,38 @@ export function SettingsPage() {
         </Card>
       </Drift>
 
-      <Drift page={PAGE} amount={0.1}>
+      <Drift amount={0.1}>
         <Card title="Ovulation">
           <Toggle
             label="Show ovulation estimate"
-            hint="A rough estimate from your cycle dates, on Today and the calendar. Not a method of contraception."
+            hint={`A rough estimate from your cycle dates, on Today and the calendar${hasReminders ? ', and in reminders' : ''}. Not a method of contraception.`}
             value={settings.showOvulation}
             onChange={(showOvulation) => updateSettings({ showOvulation })}
           />
         </Card>
       </Drift>
 
-      {permission !== 'unsupported' ? (
-        <Drift page={PAGE} amount={0.105}>
+      {hasReminders ? (
+        <Drift amount={0.105}>
           <Card title="Reminders">
             <Toggle
               label="Send reminders"
-              hint="The day before your period and ovulation window, and when each is likely over."
-              value={settings.reminders && permission === 'granted'}
-              disabled={permission === 'denied'}
-              onChange={toggleReminders}
+              hint={
+                settings.showOvulation
+                  ? 'The day before your period and ovulation window, and when each is likely over.'
+                  : 'The day before your period, and when it is likely over.'
+              }
+              value={reminders.status === 'on'}
+              disabled={reminders.status === 'blocked'}
+              onChange={setRemindersOn}
             />
             <Toggle
               label="Say what they're about"
               hint="Off keeps the text neutral, so your lock screen gives nothing away."
-              value={settings.detailedReminders}
-              onChange={(detailedReminders) => updateSettings({ detailedReminders })}
+              value={reminders.detailed}
+              onChange={setDetailedReminders}
             />
-            {permission === 'denied' ? (
+            {reminders.status === 'blocked' ? (
               <View style={styles.start}>
                 <Text variant="body" tone="secondary">
                   Notifications are off for this app in your phone&apos;s settings.
@@ -133,8 +131,8 @@ export function SettingsPage() {
         </Drift>
       ) : null}
 
-      <Drift page={PAGE} amount={0.11}>
-        <Sticker name="folder" page={PAGE} width={84} drift={-0.2} style={styles.folder} />
+      <Drift amount={0.11}>
+        <Sticker name="folder" width={84} drift={-0.2} style={styles.folder} />
         <Card title="Your data">
           <Text variant="paragraph">
             Everything you log is stored only on this device. There&apos;s no account and no sync.
@@ -153,7 +151,7 @@ export function SettingsPage() {
         </Card>
       </Drift>
 
-      <Drift page={PAGE} amount={0.13}>
+      <Drift amount={0.13}>
         <Card title="About">
           <View style={styles.start}>
             <TextButton label="How predictions work" onPress={openHowItWorks} />
@@ -183,13 +181,8 @@ export function SettingsPage() {
               goTo(Pages.today);
             }}
           />
-          {permission === 'granted' ? (
-            <Button
-              variant="secondary"
-              label="Send test reminders"
-              icon="notifications"
-              onPress={() => sendTestReminders(sampleBodies(settings.detailedReminders))}
-            />
+          {reminders.status === 'on' ? (
+            <Button variant="secondary" label="Send test reminders" icon="notifications" onPress={sendTestReminders} />
           ) : null}
         </Card>
       ) : null}

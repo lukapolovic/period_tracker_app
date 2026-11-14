@@ -1,11 +1,11 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
 
-import { useAppStore } from '@/store/app-store';
-
 import { darkColors, lightColors, type ColorTokens } from './tokens';
 
 export * from './tokens';
+
+export type ThemePreference = 'system' | 'light' | 'dark';
 
 export type Theme = { scheme: 'light' | 'dark'; colors: ColorTokens };
 
@@ -14,8 +14,8 @@ const darkTheme: Theme = { scheme: 'dark', colors: darkColors };
 
 const ThemeContext = createContext<Theme>(lightTheme);
 
-export function AppThemeProvider({ children }: { children: ReactNode }) {
-  const preference = useAppStore((s) => s.settings.theme);
+/** Takes the preference as a prop, so the theme never reaches into the store and components render without it. */
+export function AppThemeProvider({ preference, children }: { preference: ThemePreference; children: ReactNode }) {
   const system = useColorScheme();
   const scheme = preference === 'system' ? (system === 'dark' ? 'dark' : 'light') : preference;
   return (

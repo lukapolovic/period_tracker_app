@@ -67,11 +67,13 @@ type SheetProps = {
   eyebrow?: string;
   /** Pinned below the scrolling content, e.g. a Done button. */
   footer?: ReactNode;
+  /** For a sheet whose text field comes last: keeps the end in view while the keyboard is up. */
+  keepEndAboveKeyboard?: boolean;
   children: ReactNode;
 };
 
 /** A cream page that rises over the world. Drag the handle down, tap outside or use the button to leave. */
-export function Sheet({ sheet, title, eyebrow, footer, children }: SheetProps) {
+export function Sheet({ sheet, title, eyebrow, footer, keepEndAboveKeyboard = false, children }: SheetProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { height } = useFlow();
@@ -82,11 +84,11 @@ export function Sheet({ sheet, title, eyebrow, footer, children }: SheetProps) {
   const top = insets.top + PEEK;
   const travel = height - top;
 
-  // Text fields sit last in a sheet, so the end is the part to show while the keyboard is up.
   useEffect(() => {
+    if (!keepEndAboveKeyboard) return;
     const sub = Keyboard.addListener('keyboardDidShow', () => scroll.current?.scrollToEnd());
     return () => sub.remove();
-  }, []);
+  }, [keepEndAboveKeyboard]);
 
   const pull = usePanGesture({
     onUpdate: (e) => {
@@ -136,7 +138,7 @@ export function Sheet({ sheet, title, eyebrow, footer, children }: SheetProps) {
             style={styles.fill}
             contentContainerStyle={[styles.content, { paddingBottom: (footer ? 0 : insets.bottom) + space[8] }]}
             onContentSizeChange={() => {
-              if (Keyboard.isVisible()) scroll.current?.scrollToEnd();
+              if (keepEndAboveKeyboard && Keyboard.isVisible()) scroll.current?.scrollToEnd();
             }}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
