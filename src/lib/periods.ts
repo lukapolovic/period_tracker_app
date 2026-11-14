@@ -1,8 +1,9 @@
 /**
  * Pure edits to the list of periods. Every function returns a new, sorted array and never
  * leaves two periods overlapping or touching (touching periods are merged).
+ * The core of the cycle record (record.ts), which keeps day logs and cycle choices in line with these edits.
  */
-import { sortPeriods, type Flow, type Period } from './cycle';
+import { sortPeriods, type Period } from './cycle';
 import { addDays, type ISODate } from './dates';
 
 export type PeriodEdge = 'single' | 'start' | 'end' | 'middle';
@@ -69,9 +70,4 @@ export function endPeriodOn(periods: Period[], date: ISODate): Period[] {
   const period = findPeriod(sorted, date);
   if (!period) return sorted;
   return sortPeriods([...sorted.filter((p) => p !== period), { ...period, end: date, endEstimated: false }]);
-}
-
-/** Light, medium and heavy flow only make sense on a period day. */
-export function isPeriodFlow(flow: Flow | undefined): boolean {
-  return flow === 'light' || flow === 'medium' || flow === 'heavy';
 }

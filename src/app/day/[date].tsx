@@ -6,14 +6,31 @@ import { FlowSelector } from '@/components/flow-selector';
 import { Button, Card, Chip, Notice, SectionTitle, Text, TextButton } from '@/components/ui';
 import { MOODS, SYMPTOMS } from '@/constants/log-options';
 import { Sheet, useSheet } from '@/flow/sheet';
-import { usePrediction } from '@/hooks/use-prediction';
+import { useDayStatus, usePrediction } from '@/hooks/use-prediction';
 import { useToday } from '@/hooks/use-today';
-import { sortPeriods } from '@/lib/cycle';
-import { diffDays, formatDay, formatRange, isISODate, type ISODate } from '@/lib/dates';
+import { formatDay, formatRange, isISODate, type ISODate } from '@/lib/dates';
+import type { DayStatus } from '@/lib/day-status';
 import { tapFeedback } from '@/lib/haptics';
-import { edgeOf, findPeriod } from '@/lib/periods';
 import { useAppStore } from '@/store/app-store';
 import { fonts, radius, space, useTheme } from '@/theme';
+
+/** The line under the date: what this day is in the cycle. */
+function describe(status: DayStatus): string | null {
+  switch (status.kind) {
+    case 'period':
+      return `Period day ${status.day}${status.isEstimatedEnd ? ', end estimated' : ''}`;
+    case 'expected-period':
+      return `Period day ${status.day}, estimated`;
+    case 'predicted-period':
+      return `Period likely to start ${formatRange(status.window.from, status.window.to)}`;
+    case 'ovulation':
+      return 'Ovulation window, a rough estimate';
+    case 'cycle-day':
+      return `Cycle day ${status.day}`;
+    case 'none':
+      return null;
+  }
+}
 
 export default function DayScreen() {
   const params = useLocalSearchParams<{ date: string }>();
@@ -24,56 +41,36 @@ export default function DayScreen() {
   const { colors } = useTheme();
   const sheet = useSheet();
   const prediction = usePrediction(today);
-  const periods = useAppStore((s) => s.periods);
-  const log = useAppStore((s) => s.logs[date]);
-  const markPeriodDay = useAppStore((s) => s.markPeriodDay);
-  const unmarkPeriodDay = useAppStore((s) => s.unmarkPeriodDay);
-  const endPeriodOn = useAppStore((s) => s.endPeriodOn);
-  const setFlow = useAppStore((s) => s.setFlow);
-  const toggleSymptom = useAppStore((s) => s.toggleSymptom);
-  const toggleMood = useAppStore((s) => s.toggleMood);
-  const setNote = useAppStore((s) => s.setNote);
+  const status = useDayStatus(prediction, today)(date);
+  const log = useAppStore((s) => s.record.logs[date]);
+  const apply = useAppStore((s) => s.apply);
   const [note, setNoteText] = useState(log?.note ?? '');
   const [noteFocused, setNoteFocused] = useState(false);
 
-  const period = findPeriod(periods, date);
-  const edge = period ? edgeOf(period, date) : null;
-  const window = prediction.upcoming.find((w) => w.from <= date && date <= w.to);
-  const ovulation = prediction.ovulation.find((w) => w.from <= date && date <= w.to);
-  const cycleStart = sortPeriods(periods)
-    .filter((p) => p.start <= date)
-    .at(-1)?.start;
-
-  const status = period
-    ? `Period day ${diffDays(date, period.start) + 1}${period.endEstimated && date >= period.end ? ', end estimated' : ''}`
-    : window
-      ? `Period likely to start ${formatRange(window.from, window.to)}`
-      : ovulation
-        ? 'Ovulation window, a rough estimate'
-        : cycleStart && !isFuture
-          ? `Cycle day ${diffDays(date, cycleStart) + 1}`
-          : null;
+  /** Only a logged day can be edited; days still to come wait until they're here. */
+  const period = status.kind === 'period' ? status : null;
+  const statusText = describe(status);
 
   /** Saved as it's typed, so every way out of the sheet keeps it. */
   const changeNote = (text: string) => {
     setNoteText(text);
-    setNote(date, text);
+    apply({ type: 'set-note', date, note: text });
   };
   const togglePeriodDay = () => {
-    if (period) unmarkPeriodDay(date);
-    else markPeriodDay(date);
+    apply(period ? { type: 'unmark-period-day', date } : { type: 'mark-period-day', date });
     tapFeedback();
   };
 
   return (
     <Sheet
       sheet={sheet}
-      eyebrow={date === today ? 'Today' : isFuture ? 'Upcoming' : (status ?? 'Log a day')}
+      keepEndAboveKeyboard
+      eyebrow={date === today ? 'Today' : isFuture ? 'Upcoming' : (statusText ?? 'Log a day')}
       title={formatDay(date, { weekday: true, month: 'long', year: date.slice(0, 4) !== today.slice(0, 4) })}
       footer={<Button label="Done" icon="checkmark" onPress={sheet.close} />}>
-      {(date === today || isFuture) && status ? (
+      {(date === today || isFuture) && statusText ? (
         <Text variant="bodyStrong" tone="secondary" style={styles.status}>
-          {status}
+          {statusText}
         </Text>
       ) : null}
 
@@ -87,22 +84,26 @@ export default function DayScreen() {
                 category="period"
                 label="Period day"
                 selected={!!period}
-                disabled={edge === 'middle'}
+                disabled={period?.edge === 'middle'}
                 onPress={togglePeriodDay}
                 accessibilityHint={period ? 'Removes this day from the period' : 'Marks this day as a period day'}
               />
             </View>
-            {edge === 'middle' ? (
+            {period?.edge === 'middle' ? (
               <Text variant="caption" tone="secondary">
                 This day is in the middle of a period. To shorten it, remove days from its start or use “Period ended
                 on this day” on an earlier day.
               </Text>
             ) : null}
             <SectionTitle>Flow</SectionTitle>
-            <FlowSelector value={log?.flow} onChange={(flow) => setFlow(date, flow)} />
-            {period && (period.endEstimated || period.end !== date) ? (
+            <FlowSelector value={log?.flow} onChange={(flow) => apply({ type: 'set-flow', date, flow })} />
+            {period?.canEndHere ? (
               <View style={styles.row}>
-                <TextButton label="Period ended on this day" icon="checkmark" onPress={() => endPeriodOn(date)} />
+                <TextButton
+                  label="Period ended on this day"
+                  icon="checkmark"
+                  onPress={() => apply({ type: 'end-period', date })}
+                />
               </View>
             ) : null}
           </Card>
@@ -115,7 +116,7 @@ export default function DayScreen() {
                   category="symptom"
                   label={s.label}
                   selected={!!log?.symptoms?.includes(s.id)}
-                  onPress={() => toggleSymptom(date, s.id)}
+                  onPress={() => apply({ type: 'toggle-symptom', date, id: s.id })}
                 />
               ))}
             </View>
@@ -129,7 +130,7 @@ export default function DayScreen() {
                   category="mood"
                   label={m.label}
                   selected={!!log?.moods?.includes(m.id)}
-                  onPress={() => toggleMood(date, m.id)}
+                  onPress={() => apply({ type: 'toggle-mood', date, id: m.id })}
                 />
               ))}
             </View>

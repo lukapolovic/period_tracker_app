@@ -6,6 +6,7 @@
  * 3. Spread V = round(standard deviation), 1–10 days; 3 days until 3 cycles exist.
  * 4. Next period window = last start + L, shown as [start − V, start + V].
  * 5. Ovulation estimate = next start − 14 days, window = that day − 5 to + 1. Dates only, so always a rough estimate.
+ *    When there is none, `ovulationGap` says why.
  */
 import { addDays, diffDays, type ISODate } from './dates';
 
@@ -14,11 +15,15 @@ export type Flow = 'spotting' | 'light' | 'medium' | 'heavy';
 /** A bleeding episode. `endEstimated` = the end came from the typical length, not from the user. */
 export type Period = { start: ISODate; end: ISODate; endEstimated: boolean };
 
+/** A "Count in predictions" choice that differs from the cycle's default (see `overrideFor`). */
 export type CycleOverride = 'include' | 'exclude';
 
 export const RULES = {
   minValidCycle: 15,
   maxValidCycle: 90,
+  /** Period lengths you can enter, and the range a predicted period length stays within. */
+  minPeriod: 1,
+  maxPeriod: 14,
   maxCyclesUsed: 6,
   defaultCycle: 28,
   defaultPeriod: 5,
@@ -34,6 +39,8 @@ export const RULES = {
   lutealDays: 14,
   ovulationDaysBefore: 5,
   ovulationDaysAfter: 1,
+  /** Cycles predicted ahead: what the calendar draws, and so what reminders are planned for. */
+  cyclesAhead: 3,
 } as const;
 
 export type CycleInfo = {
@@ -64,6 +71,13 @@ export type OvulationWindow = {
   to: ISODate;
 };
 
+/**
+ * Why there's no ovulation window today or still to come: the estimate is switched off, no period is logged yet,
+ * cycles vary too much for dates alone, the period is late so there's no predicted start to count back from, or
+ * counting back lands inside the period before it.
+ */
+export type OvulationGap = 'off' | 'no-period' | 'cycles-vary' | 'late' | 'no-room';
+
 export type PredictionStatus = 'empty' | 'period' | 'upcoming' | 'window' | 'late';
 export type PredictionBasis = 'history' | 'typical' | 'single-cycle' | 'default';
 
@@ -86,6 +100,8 @@ export type Prediction = {
   upcoming: PredictedWindow[];
   /** Empty when the estimate is off, or when cycles vary too much for it to mean anything. */
   ovulation: OvulationWindow[];
+  /** Why there's no ovulation window today or still to come; null when there is one. */
+  ovulationGap: OvulationGap | null;
   daysUntil: { from: number; to: number } | null;
   daysLate: number | null;
 };
@@ -121,13 +137,26 @@ export function sampleStdDev(values: number[]): number {
   return Math.sqrt(variance);
 }
 
+/** A cycle this short or long usually means a missed log, so it's left out of predictions unless counted in. */
+export function isOutOfRange(length: number): boolean {
+  return length < RULES.minValidCycle || length > RULES.maxValidCycle;
+}
+
+/**
+ * The override to store so a cycle counts in predictions, or doesn't, as asked. Normal cycles count by default and
+ * out-of-range ones don't, so an override is only kept where the choice differs from that default.
+ */
+export function overrideFor(outOfRange: boolean, counted: boolean): CycleOverride | null {
+  if (counted === !outOfRange) return null;
+  return counted ? 'include' : 'exclude';
+}
+
 export function buildCycles(periods: Period[], overrides: Record<ISODate, CycleOverride>): CycleInfo[] {
   const sorted = sortPeriods(periods);
   const cycles = sorted.map((p, i): CycleInfo => {
     const next = sorted[i + 1];
     const length = next ? diffDays(next.start, p.start) : null;
-    const outOfRange =
-      length !== null && (length < RULES.minValidCycle || length > RULES.maxValidCycle);
+    const outOfRange = length !== null && isOutOfRange(length);
     const override = overrides[p.start] ?? null;
     const included =
       length !== null && (override === 'include' || (override !== 'exclude' && !outOfRange));
@@ -159,7 +188,7 @@ export function predictedPeriodLength(periods: Period[], typical: number | null)
     .slice(-RULES.maxCyclesUsed)
     .map(periodLengthOf);
   const value = confirmed.length ? Math.round(median(confirmed)) : (typical ?? RULES.defaultPeriod);
-  return clamp(value, 1, 14);
+  return clamp(value, RULES.minPeriod, RULES.maxPeriod);
 }
 
 export function predict(input: PredictionInput, today: ISODate): Prediction {
@@ -216,6 +245,7 @@ export function predict(input: PredictionInput, today: ISODate): Prediction {
       next: null,
       upcoming: [],
       ovulation: [],
+      ovulationGap: input.showOvulation ? 'no-period' : 'off',
       daysUntil: null,
       daysLate: null,
     };
@@ -247,6 +277,17 @@ export function predict(input: PredictionInput, today: ISODate): Prediction {
   else if (today <= next.to) status = 'window';
   else status = 'late';
 
+  const ahead = Array.from({ length: RULES.cyclesAhead }, (_, i) => i + 1);
+  // Reminders are planned from these same windows, so switching the estimate off stops ovulation reminders too.
+  const gate: OvulationGap | null = !input.showOvulation
+    ? 'off'
+    : cyclesVary
+      ? 'cycles-vary'
+      : status === 'late'
+        ? 'late'
+        : null;
+  const ovulation = gate ? [] : ahead.map(ovulationFor).filter((w) => w !== null);
+
   return {
     ...base,
     status,
@@ -256,11 +297,9 @@ export function predict(input: PredictionInput, today: ISODate): Prediction {
     periodDay: inPeriod ? diffDays(today, last.start) + 1 : null,
     next,
     // While late we only show the missed window — anything further out would be a guess.
-    upcoming: status === 'late' ? [next] : [1, 2, 3].map(windowFor),
-    ovulation:
-      input.showOvulation && !cyclesVary && status !== 'late'
-        ? [1, 2, 3].map(ovulationFor).filter((w) => w !== null)
-        : [],
+    upcoming: status === 'late' ? [next] : ahead.map(windowFor),
+    ovulation,
+    ovulationGap: gate ?? (ovulation.some((w) => w.to >= today) ? null : 'no-room'),
     daysUntil:
       status === 'upcoming'
         ? { from: diffDays(next.from, today), to: diffDays(next.to, today) }
@@ -269,7 +308,10 @@ export function predict(input: PredictionInput, today: ISODate): Prediction {
   };
 }
 
-/** The window in progress, or the next one to come. */
+/**
+ * The ovulation window in progress, or the next one to come — what Today's card and the explanation name. Once this
+ * cycle's window has passed it moves on to the next cycle's; the ring keeps drawing this cycle's (see `cycleMap`).
+ */
 export function nextOvulation(p: Prediction, today: ISODate): OvulationWindow | null {
   return p.ovulation.find((w) => w.to >= today) ?? null;
 }

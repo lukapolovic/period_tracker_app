@@ -1,9 +1,36 @@
 /**
- * What to remind about and when, worked out from the prediction. Pure, so it can be tested without a phone.
- * Everything is a local notification (MARKET_ANALYSIS.md §12.4): nothing leaves the device.
+ * What to remind about and when, worked out from the prediction, and when reminders count as on. Pure, so it can be
+ * tested without a phone. Everything is a local notification (MARKET_ANALYSIS.md §12.4): nothing leaves the device.
+ *
+ * Reminders follow what the calendar shows: the next `RULES.cyclesAhead` predicted windows, and ovulation windows
+ * only while "Show ovulation estimate" is on — switching the estimate off stops ovulation reminders too.
  */
 import type { Prediction } from './cycle';
 import { addDays, diffDays, parts, type ISODate } from './dates';
+
+/** The phone's answer about notifications. `unsupported` = no local notifications here, e.g. the browser preview. */
+export type ReminderPermission = 'granted' | 'denied' | 'undetermined' | 'unsupported';
+
+/** What reminders need from the phone: one adapter per platform (notifications.ts, notifications.web.ts). */
+export type ReminderDevice = {
+  getPermission(): Promise<ReminderPermission>;
+  /** Shows the phone's prompt if it still can; otherwise answers with the permission as it stands. */
+  requestPermission(): Promise<ReminderPermission>;
+  /** Clears every scheduled reminder and schedules these instead. */
+  replaceScheduled(reminders: Reminder[]): Promise<void>;
+  /** Development only: sends each body a few seconds apart. */
+  sendTest(bodies: string[]): Promise<void>;
+};
+
+/** Reminders as the person sees them. `blocked` = turned off for this app in the phone's settings. */
+export type ReminderStatus = 'on' | 'off' | 'blocked' | 'unsupported';
+
+/** On means the setting is on and the phone allows it: the phone always has the last word. */
+export function reminderStatus(setting: boolean, permission: ReminderPermission): ReminderStatus {
+  if (permission === 'unsupported') return 'unsupported';
+  if (permission === 'denied') return 'blocked';
+  return setting && permission === 'granted' ? 'on' : 'off';
+}
 
 export type ReminderKind = 'period-soon' | 'period-over' | 'ovulation-soon' | 'ovulation-over';
 
@@ -67,4 +94,15 @@ export function buildReminders(p: Prediction, detailed: boolean, now: Date): Rem
   }
 
   return reminders.filter((r) => r.at > now).sort((a, b) => a.at.getTime() - b.at.getTime());
+}
+
+/** What the phone should have scheduled right now: nothing unless reminders are on. */
+export function plannedReminders(
+  p: Prediction,
+  settings: { reminders: boolean; detailedReminders: boolean },
+  permission: ReminderPermission,
+  now: Date,
+): Reminder[] {
+  if (reminderStatus(settings.reminders, permission) !== 'on') return [];
+  return buildReminders(p, settings.detailedReminders, now);
 }

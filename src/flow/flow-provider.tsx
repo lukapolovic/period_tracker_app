@@ -9,15 +9,13 @@ import {
   type SharedValue,
 } from 'react-native-reanimated';
 
-/** The whole app is one wide page with four stops: Today, Calendar, History, Settings. */
-export const PAGE_COUNT = 4;
-
-export const Pages = { today: 0, calendar: 1, history: 2, settings: 3 } as const;
+import { WORLD_PAGES } from './world';
 
 /** Slow start, long soft landing. */
 const PAN_EASING = Easing.bezier(0.62, 0.02, 0.16, 1);
 
-export type Flow = {
+/** The pan along the one page. Not to be confused with `Flow` in lib/cycle.ts, the bleeding level. */
+export type FlowState = {
   width: number;
   height: number;
   /** Pan position in pages: 0 is Today, 1.5 is halfway between Calendar and History. */
@@ -42,29 +40,29 @@ export type Flow = {
   jumpTo: (page: number) => void;
 };
 
-const FlowContext = createContext<Flow | null>(null);
+const FlowContext = createContext<FlowState | null>(null);
 
 export function FlowProvider({ children }: { children: ReactNode }) {
   const { width, height } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
   const [page, setPage] = useState(0);
   const progress = useSharedValue(0);
-  const offsets = useSharedValue<number[]>(new Array(PAGE_COUNT).fill(0));
-  const ends = useSharedValue<number[]>(new Array(PAGE_COUNT).fill(0));
+  const offsets = useSharedValue<number[]>(new Array(WORLD_PAGES).fill(0));
+  const ends = useSharedValue<number[]>(new Array(WORLD_PAGES).fill(0));
   const lift = useSharedValue(0);
 
   const scrollY = useDerivedValue(() => {
-    const p = Math.min(Math.max(progress.get(), 0), PAGE_COUNT - 1);
+    const p = Math.min(Math.max(progress.get(), 0), WORLD_PAGES - 1);
     const a = Math.floor(p);
-    const b = Math.min(a + 1, PAGE_COUNT - 1);
+    const b = Math.min(a + 1, WORLD_PAGES - 1);
     const list = offsets.get();
     return list[a] + (list[b] - list[a]) * (p - a);
   });
 
   const rise = useDerivedValue(() => {
-    const p = Math.min(Math.max(progress.get(), 0), PAGE_COUNT - 1);
+    const p = Math.min(Math.max(progress.get(), 0), WORLD_PAGES - 1);
     const a = Math.floor(p);
-    const b = Math.min(a + 1, PAGE_COUNT - 1);
+    const b = Math.min(a + 1, WORLD_PAGES - 1);
     const list = ends.get();
     return list[a] + (list[b] - list[a]) * (p - a);
   });
@@ -87,8 +85,8 @@ export function FlowProvider({ children }: { children: ReactNode }) {
     (next: number) => {
       setPage(next);
       progress.set(next);
-      offsets.set(new Array(PAGE_COUNT).fill(0));
-      ends.set(new Array(PAGE_COUNT).fill(0));
+      offsets.set(new Array(WORLD_PAGES).fill(0));
+      ends.set(new Array(WORLD_PAGES).fill(0));
     },
     [progress, offsets, ends],
   );
@@ -115,8 +113,20 @@ export function FlowProvider({ children }: { children: ReactNode }) {
   return <FlowContext.Provider value={value}>{children}</FlowContext.Provider>;
 }
 
-export function useFlow(): Flow {
+export function useFlow(): FlowState {
   const flow = useContext(FlowContext);
   if (!flow) throw new Error('useFlow must be used inside FlowProvider');
   return flow;
+}
+
+const PageIndexContext = createContext<number | null>(null);
+
+/** Set by FlowStage around each page, so everything inside a page knows which page it's on. */
+export const PageIndexProvider = PageIndexContext.Provider;
+
+/** The index of the page this is on. */
+export function usePageIndex(): number {
+  const index = useContext(PageIndexContext);
+  if (index === null) throw new Error('usePageIndex must be used inside a page of FlowStage');
+  return index;
 }

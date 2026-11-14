@@ -5,7 +5,7 @@ import { useDerivedValue, withSpring } from 'react-native-reanimated';
 
 import { canvasOverlay, useTheme, type ColorTokens } from '@/theme';
 
-import { useFlow } from './flow-provider';
+import { useFlow, usePageIndex } from './flow-provider';
 import { appendSpline } from './ribbon-sim';
 
 /** Room above the card for the ribbon to arc through. */
@@ -27,7 +27,6 @@ const TONES = {
 } satisfies Record<string, Tone>;
 
 type RibbonHopProps = {
-  page: number;
   tone: keyof typeof TONES;
   children: ReactNode;
 };
@@ -37,7 +36,8 @@ type RibbonHopProps = {
  * top right corner. Keep that corner free of text. The arc is tied to the page's scroll, so it leaps while
  * the page moves and settles when it stops.
  */
-export function RibbonHop({ page, tone, children }: RibbonHopProps) {
+export function RibbonHop({ tone, children }: RibbonHopProps) {
+  const page = usePageIndex();
   const { colors } = useTheme();
   const { width: screen, progress, offsets, reduceMotion } = useFlow();
   const [size, setSize] = useState({ width: 0, height: 0 });

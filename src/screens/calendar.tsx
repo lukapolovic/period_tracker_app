@@ -1,22 +1,36 @@
-import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { MonthGrid, type DayInfo } from '@/components/month-grid';
+import { MonthGrid, type DayInfo, type DayMark } from '@/components/month-grid';
 import { Card, IconButton, Text, TextButton } from '@/components/ui';
 import { Drift, FlowPage } from '@/flow/flow-page';
-import { Pages, useFlow } from '@/flow/flow-provider';
+import { useFlow } from '@/flow/flow-provider';
 import { RibbonHop } from '@/flow/ribbon-hop';
 import { openDay } from '@/flow/sheet';
 import { Sticker } from '@/flow/sticker';
-import { usePrediction } from '@/hooks/use-prediction';
+import { useMonthCursor } from '@/hooks/use-month-cursor';
+import { useDayStatus, usePrediction } from '@/hooks/use-prediction';
 import { useToday } from '@/hooks/use-today';
-import { addMonths, eachDay, formatMonthYear, formatRange, parts, type ISODate } from '@/lib/dates';
-import { hasDetails } from '@/lib/log';
-import { findPeriod } from '@/lib/periods';
+import { formatMonthYear, formatRange, type ISODate } from '@/lib/dates';
+import type { DayStatus } from '@/lib/day-status';
+import { hasDetails } from '@/lib/record';
 import { useAppStore } from '@/store/app-store';
 import { radius, space, useTheme } from '@/theme';
 
-const PAGE = Pages.calendar;
+
+/** Logged period days are solid. Anything still to come is an estimate, drawn dashed like a prediction. */
+function markOf(status: DayStatus): DayMark {
+  switch (status.kind) {
+    case 'period':
+      return 'period';
+    case 'expected-period':
+    case 'predicted-period':
+      return 'predicted';
+    case 'ovulation':
+      return 'ovulation';
+    default:
+      return 'none';
+  }
+}
 
 function Legend({ ovulation }: { ovulation: boolean }) {
   const { colors } = useTheme();
@@ -57,56 +71,29 @@ export function CalendarPage() {
   const { width } = useFlow();
   const today = useToday();
   const prediction = usePrediction(today);
-  const periods = useAppStore((s) => s.periods);
-  const logs = useAppStore((s) => s.logs);
+  const statusOf = useDayStatus(prediction, today);
+  const logs = useAppStore((s) => s.record.logs);
   const weekStartsOn = useAppStore((s) => s.settings.weekStartsOn);
-  const [cursor, setCursor] = useState(() => parts(today));
+  const month = useMonthCursor(today);
+  const hasOvulation = prediction.ovulation.length > 0;
 
-  const predicted = useMemo(() => {
-    const days = new Set<ISODate>();
-    for (const w of prediction.upcoming) for (const d of eachDay(w.from, w.to)) days.add(d);
-    return days;
-  }, [prediction.upcoming]);
+  const getDayInfo = (date: ISODate): DayInfo => ({
+    mark: markOf(statusOf(date)),
+    isToday: date === today,
+    hasLog: hasDetails(logs[date]),
+    isFuture: date > today,
+  });
 
-  const ovulationDays = useMemo(() => {
-    const days = new Set<ISODate>();
-    for (const w of prediction.ovulation) for (const d of eachDay(w.from, w.to)) days.add(d);
-    return days;
-  }, [prediction.ovulation]);
-
-  const getDayInfo = (date: ISODate): DayInfo => {
-    const isFuture = date > today;
-    const inPeriod = !!findPeriod(periods, date);
-    return {
-      // Period days still to come are estimates, so they're drawn like predictions.
-      mark: inPeriod
-        ? isFuture
-          ? 'predicted'
-          : 'period'
-        : predicted.has(date)
-          ? 'predicted'
-          : ovulationDays.has(date)
-            ? 'ovulation'
-            : 'none',
-      isToday: date === today,
-      hasLog: hasDetails(logs[date]),
-      isFuture,
-    };
-  };
-
-  const shift = (delta: number) => setCursor((c) => ({ ...c, ...addMonths(c.year, c.monthIndex, delta) }));
-  const now = parts(today);
-  const onCurrentMonth = cursor.year === now.year && cursor.monthIndex === now.monthIndex;
-  const [monthName, year] = formatMonthYear(cursor.year, cursor.monthIndex).split(' ');
+  const [monthName, year] = formatMonthYear(month.year, month.monthIndex).split(' ');
 
   return (
-    <FlowPage index={PAGE}>
+    <FlowPage>
       <View style={styles.stage}>
-        <Sticker name="leap" page={PAGE} width={width * 0.42} drift={-0.18} style={styles.leaper} />
-        <Sticker name="ball" page={PAGE} width={width * 0.15} drift={-0.34} rotate={-14} style={styles.ball} />
+        <Sticker name="leap" width={width * 0.42} drift={-0.18} style={styles.leaper} />
+        <Sticker name="ball" width={width * 0.15} drift={-0.34} rotate={-14} style={styles.ball} />
       </View>
 
-      <Drift page={PAGE} amount={0.06}>
+      <Drift amount={0.06}>
         <Card style={styles.card}>
           <View>
             <Text
@@ -121,25 +108,25 @@ export function CalendarPage() {
               <Text variant="subheading" tone="secondary" style={styles.year}>
                 {year}
               </Text>
-              {!onCurrentMonth ? <TextButton label="Today" onPress={() => setCursor(now)} /> : null}
-              <IconButton tone="inset" icon="chevron-back" label="Previous month" onPress={() => shift(-1)} />
-              <IconButton tone="inset" icon="chevron-forward" label="Next month" onPress={() => shift(1)} />
+              {!month.isCurrent ? <TextButton label="Today" onPress={month.reset} /> : null}
+              <IconButton tone="inset" icon="chevron-back" label="Previous month" onPress={() => month.shift(-1)} />
+              <IconButton tone="inset" icon="chevron-forward" label="Next month" onPress={() => month.shift(1)} />
             </View>
           </View>
           <MonthGrid
-            year={cursor.year}
-            monthIndex={cursor.monthIndex}
+            year={month.year}
+            monthIndex={month.monthIndex}
             weekStartsOn={weekStartsOn}
             getDayInfo={getDayInfo}
             onPressDay={openDay}
           />
-          <Legend ovulation={ovulationDays.size > 0} />
+          <Legend ovulation={hasOvulation} />
         </Card>
       </Drift>
 
       {prediction.next && prediction.status !== 'late' ? (
-        <Drift page={PAGE} amount={0.1} style={styles.hop}>
-          <RibbonHop page={PAGE} tone="sky">
+        <Drift amount={0.1} style={styles.hop}>
+          <RibbonHop tone="sky">
             <Card>
               <Text variant="label" tone="secondary">
                 Next period
@@ -148,7 +135,7 @@ export function CalendarPage() {
               <Text variant="body" tone="secondary">
                 Dashed days are estimates. They get more precise as you log more cycles.
               </Text>
-              {ovulationDays.size > 0 ? (
+              {hasOvulation ? (
                 <Text variant="body" tone="secondary">
                   Dotted days are a rough ovulation estimate from your dates. Not a method of contraception.
                 </Text>

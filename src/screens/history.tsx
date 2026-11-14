@@ -4,10 +4,11 @@ import { StyleSheet, View } from 'react-native';
 import { CycleBarChart } from '@/components/cycle-bar-chart';
 import { Button, Card, Chip, Placeholder, Text, TextButton } from '@/components/ui';
 import { Drift, FlowPage } from '@/flow/flow-page';
-import { Pages, useFlow } from '@/flow/flow-provider';
+import { useFlow } from '@/flow/flow-provider';
 import { RibbonHop } from '@/flow/ribbon-hop';
 import { openHowItWorks } from '@/flow/sheet';
 import { Sticker } from '@/flow/sticker';
+import { Pages } from '@/flow/stops';
 import { usePrediction } from '@/hooks/use-prediction';
 import { useToday } from '@/hooks/use-today';
 import { RULES, type CycleInfo } from '@/lib/cycle';
@@ -15,7 +16,6 @@ import { formatDay, formatRange, parts, plural } from '@/lib/dates';
 import { useAppStore } from '@/store/app-store';
 import { radius, space, useTheme } from '@/theme';
 
-const PAGE = Pages.history;
 
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -100,12 +100,12 @@ export function HistoryPage() {
   const { width, goTo } = useFlow();
   const today = useToday();
   const prediction = usePrediction(today);
-  const setCycleOverride = useAppStore((s) => s.setCycleOverride);
+  const apply = useAppStore((s) => s.apply);
 
   const completed = prediction.cycles.filter((c) => c.length !== null);
   const current = prediction.cycles.find((c) => c.length === null) ?? null;
   const used = prediction.usedLengths;
-  const personal = used.length >= RULES.minCyclesPersonal;
+  const personal = !prediction.earlyEstimate;
   const bars = completed.slice(-10).map((c) => ({
     key: c.start,
     value: c.length!,
@@ -116,20 +116,16 @@ export function HistoryPage() {
     personal ? ` Median ${prediction.baseLength} days.` : ''
   }`;
 
-  const toggle = (c: CycleInfo) => {
-    // Normal cycles count by default; flagged ones only when the user says so.
-    if (c.included) setCycleOverride(c.start, c.outOfRange ? null : 'exclude');
-    else setCycleOverride(c.start, c.outOfRange ? 'include' : null);
-  };
+  const toggle = (c: CycleInfo) => apply({ type: 'count-cycle', start: c.start, counted: !c.included });
 
   return (
-    <FlowPage index={PAGE}>
+    <FlowPage>
       <View style={styles.stage}>
-        <Sticker name="group" page={PAGE} width={width * 0.62} drift={-0.14} style={styles.group} />
+        <Sticker name="group" width={width * 0.62} drift={-0.14} style={styles.group} />
       </View>
 
-      <Drift page={PAGE} amount={0.06}>
-        <RibbonHop page={PAGE} tone="coral">
+      <Drift amount={0.06}>
+        <RibbonHop tone="coral">
           <Card>
             <Text variant="headingLg" accessibilityRole="header">
               History
@@ -163,7 +159,7 @@ export function HistoryPage() {
       </Drift>
 
       {completed.length === 0 ? (
-        <Drift page={PAGE} amount={0.1}>
+        <Drift amount={0.1}>
           <Card>
             <Placeholder brief="A character reading an open notebook" height={160} />
             <Text variant="headingSm" align="center">
@@ -177,17 +173,17 @@ export function HistoryPage() {
         </Drift>
       ) : (
         <View>
-          <Drift page={PAGE} amount={0.1}>
+          <Drift amount={0.1}>
             <Card title="Cycle length">
               <CycleBarChart bars={bars} median={personal ? prediction.baseLength : null} summary={summary} />
             </Card>
           </Drift>
-          <Sticker name="climb" page={PAGE} width={width * 0.2} rotate={8} style={styles.climber} />
+          <Sticker name="climb" width={width * 0.2} rotate={8} style={styles.climber} />
         </View>
       )}
 
       {current || completed.length ? (
-        <Drift page={PAGE} amount={0.13}>
+        <Drift amount={0.13}>
           <Card title="Cycles">
             {current ? (
               <View style={styles.rowTop}>

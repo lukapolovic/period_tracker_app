@@ -9,11 +9,12 @@ import { Drift, FlowPage } from '@/flow/flow-page';
 import { useFlow } from '@/flow/flow-provider';
 import { FlowStage } from '@/flow/flow-stage';
 import { Sticker } from '@/flow/sticker';
-import { askForReminders, useReminderPermission } from '@/hooks/use-reminders';
+import { useMonthCursor } from '@/hooks/use-month-cursor';
+import { setRemindersOn, useReminders } from '@/hooks/use-reminders';
 import { useToday } from '@/hooks/use-today';
 import { predict, RULES } from '@/lib/cycle';
-import { addMonths, formatMonthYear, formatRange, parts, type ISODate } from '@/lib/dates';
-import { markPeriodDay } from '@/lib/periods';
+import { formatMonthYear, formatRange, type ISODate } from '@/lib/dates';
+import { applyEdit, EMPTY_RECORD } from '@/lib/record';
 import { useAppStore } from '@/store/app-store';
 import { gutter, maxContentWidth, space } from '@/theme';
 
@@ -29,8 +30,8 @@ export default function OnboardingScreen() {
   const [lastStart, setLastStart] = useState<ISODate | null>(null);
   const [cycleLength, setCycleLength] = useState<number | null>(RULES.defaultCycle);
   const [periodLength, setPeriodLength] = useState<number | null>(RULES.defaultPeriod);
-  const [cursor, setCursor] = useState(() => parts(today));
-  const permission = useReminderPermission();
+  const month = useMonthCursor(today, { upToToday: true });
+  const reminders = useReminders();
 
   useEffect(() => {
     jumpTo(0);
@@ -41,13 +42,19 @@ export default function OnboardingScreen() {
   // Flipping `onboarded` hands over to the main app (see the protected routes in _layout).
   const finish = () => {
     completeOnboarding({ lastPeriodStart: lastStart, cycleLength, periodLength });
-    askForReminders();
+    setRemindersOn(true);
   };
 
+  // The same edit "Start tracking" applies, so this preview can't drift from what Today shows a moment later.
+  const started = applyEdit(
+    EMPTY_RECORD,
+    { type: 'start-from-answers', lastPeriodStart: lastStart, periodLength },
+    { typicalPeriodLength: periodLength },
+  );
   const preview = predict(
     {
-      periods: lastStart ? markPeriodDay([], lastStart, periodLength ?? RULES.defaultPeriod) : [],
-      overrides: {},
+      periods: started.periods,
+      overrides: started.overrides,
       typicalCycleLength: cycleLength,
       typicalPeriodLength: periodLength,
     },
@@ -94,9 +101,9 @@ export default function OnboardingScreen() {
   );
 
   const pages = [
-    <FlowPage key="welcome" index={0}>
+    <FlowPage key="welcome">
       <View style={styles.spacer} />
-      <Drift page={0} amount={0.06}>
+      <Drift amount={0.06}>
         <Card>
           <Text variant="headingLg" accessibilityRole="header">
             A calm period tracker
@@ -111,13 +118,13 @@ export default function OnboardingScreen() {
         <View style={{ maxWidth: width * 0.56 }}>
           <SpeechBubble>No account, no ads. Nothing you log leaves this phone.</SpeechBubble>
         </View>
-        <Sticker name="climb" page={0} width={width * 0.3} style={styles.climber} />
+        <Sticker name="climb" width={width * 0.3} style={styles.climber} />
       </View>
     </FlowPage>,
 
-    <FlowPage key="last-period" index={1}>
+    <FlowPage key="last-period">
       <View style={styles.spacer} />
-      <Drift page={1} amount={0.06}>
+      <Drift amount={0.06}>
         <Card style={styles.calendar}>
           <Text variant="headingSm" accessibilityRole="header">
             When did your last period start?
@@ -130,22 +137,22 @@ export default function OnboardingScreen() {
               tone="inset"
               icon="chevron-back"
               label="Previous month"
-              onPress={() => setCursor((c) => ({ ...c, ...addMonths(c.year, c.monthIndex, -1) }))}
+              onPress={() => month.shift(-1)}
             />
             <Text variant="subheading" align="center" style={styles.monthName} accessibilityLiveRegion="polite">
-              {formatMonthYear(cursor.year, cursor.monthIndex)}
+              {formatMonthYear(month.year, month.monthIndex)}
             </Text>
             <IconButton
               tone="inset"
               icon="chevron-forward"
               label="Next month"
-              disabled={cursor.year === parts(today).year && cursor.monthIndex === parts(today).monthIndex}
-              onPress={() => setCursor((c) => ({ ...c, ...addMonths(c.year, c.monthIndex, 1) }))}
+              disabled={!month.canGoForward}
+              onPress={() => month.shift(1)}
             />
           </View>
           <MonthGrid
-            year={cursor.year}
-            monthIndex={cursor.monthIndex}
+            year={month.year}
+            monthIndex={month.monthIndex}
             weekStartsOn={weekStartsOn}
             getDayInfo={(date) => ({
               mark: date === lastStart ? 'period' : 'none',
@@ -160,9 +167,9 @@ export default function OnboardingScreen() {
       </Drift>
     </FlowPage>,
 
-    <FlowPage key="lengths" index={2}>
+    <FlowPage key="lengths">
       <View style={styles.spacer} />
-      <Drift page={2} amount={0.06}>
+      <Drift amount={0.06}>
         <Card>
           <Text variant="heading" accessibilityRole="header">
             What&apos;s usual for you?
@@ -183,17 +190,17 @@ export default function OnboardingScreen() {
             label="Period length"
             value={periodLength}
             fallback={RULES.defaultPeriod}
-            min={1}
-            max={14}
+            min={RULES.minPeriod}
+            max={RULES.maxPeriod}
             onChange={setPeriodLength}
           />
         </Card>
       </Drift>
     </FlowPage>,
 
-    <FlowPage key="done" index={3}>
+    <FlowPage key="done">
       <View style={styles.spacer} />
-      <Drift page={3} amount={0.06}>
+      <Drift amount={0.06}>
         <Card>
           <Text variant="headingLg" accessibilityRole="header">
             All set
@@ -213,7 +220,7 @@ export default function OnboardingScreen() {
               Tap “Period started” when your next period begins and predictions will take it from there.
             </Text>
           )}
-          {permission !== 'unsupported' ? (
+          {reminders.status !== 'unsupported' ? (
             <Text variant="body" tone="secondary">
               We&apos;ll send a quiet reminder the day before your next period and ovulation window. Your phone will
               ask if that&apos;s okay.
@@ -228,7 +235,7 @@ export default function OnboardingScreen() {
         <View style={{ maxWidth: width * 0.5 }}>
           <SpeechBubble>That&apos;s it. Log your next period with one tap.</SpeechBubble>
         </View>
-        <Sticker name="shrug" page={3} width={width * 0.42} style={styles.shrug} />
+        <Sticker name="shrug" width={width * 0.42} style={styles.shrug} />
       </View>
     </FlowPage>,
   ];

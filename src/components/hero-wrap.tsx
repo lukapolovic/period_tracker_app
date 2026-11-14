@@ -19,7 +19,7 @@ import {
   withTiming,
 } from 'react-native-reanimated';
 
-import { useFlow } from '@/flow/flow-provider';
+import { useFlow, usePageIndex } from '@/flow/flow-provider';
 import { canvasOverlay, useTheme } from '@/theme';
 
 /**
@@ -114,7 +114,6 @@ const clamp01 = (v: number) => {
 };
 
 type HeroWrapProps = {
-  page: number;
   /** Radius of the disc. */
   radius: number;
   height: number;
@@ -127,7 +126,8 @@ type HeroWrapProps = {
  * The ribbon wrapped around the disc. The disc sits between two canvases, so the ribbon passes behind it,
  * comes around and crosses in front. The ribbon winds itself on when the page arrives and unwinds when it leaves.
  */
-export function HeroWrap({ page, radius, height, ribbonText, children }: HeroWrapProps) {
+export function HeroWrap({ radius, height, ribbonText, children }: HeroWrapProps) {
+  const page = usePageIndex();
   const { colors } = useTheme();
   const { width, progress, reduceMotion } = useFlow();
   const font = useFont(require('@expo-google-fonts/inter/500Medium/Inter_500Medium.ttf'), 15);

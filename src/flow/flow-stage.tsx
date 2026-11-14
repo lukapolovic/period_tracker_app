@@ -15,15 +15,15 @@ import { tapFeedback } from '@/lib/haptics';
 import { canvasOverlay, useTheme } from '@/theme';
 
 import { Clouds, Field } from './field';
-import { PAGE_COUNT, useFlow } from './flow-provider';
+import { PageIndexProvider, useFlow } from './flow-provider';
 import { RibbonLayer } from './ribbon-canvas';
 import { useRibbonSim } from './ribbon-sim';
-import { ALL_RIBBONS, ribbonOffsets } from './world';
+import { ALL_RIBBONS, ribbonOffsets, WORLD_PAGES } from './world';
 
 const SETTLE = { damping: 26, stiffness: 120, mass: 1 };
 
 type FlowStageProps = {
-  /** One element per page, laid out side by side. */
+  /** One element per page, laid out side by side. The world is drawn for exactly `WORLD_PAGES` of them. */
   pages: ReactNode[];
   /** Fixed above everything: the nav bar. */
   chrome?: ReactNode;
@@ -81,6 +81,11 @@ export function FlowStage({ pages, chrome, swipeable = true }: FlowStageProps) {
     return reduceMotion ? 0 : Math.max(-0.3, Math.min(0.3, s.vx[0] * 0.0004));
   });
 
+  // The ribbons, knots and field are drawn for a set number of pages: more would pan off the art, fewer would end early.
+  if (pages.length !== WORLD_PAGES) {
+    throw new Error(`FlowStage got ${pages.length} pages, but the world is drawn for ${WORLD_PAGES}.`);
+  }
+
   return (
     <View style={[styles.stage, { backgroundColor: colors.canvas }]}>
       <Canvas style={canvasOverlay}>
@@ -88,11 +93,11 @@ export function FlowStage({ pages, chrome, swipeable = true }: FlowStageProps) {
       </Canvas>
 
       <GestureDetector gesture={pan}>
-        <Animated.View style={[styles.row, { width: width * PAGE_COUNT }, row]}>
+        <Animated.View style={[styles.row, { width: width * pages.length }, row]}>
           {pages.map((page, i) => (
-            <View key={i} style={{ width, height }}>
-              {page}
-            </View>
+            <PageIndexProvider key={i} value={i}>
+              <View style={{ width, height }}>{page}</View>
+            </PageIndexProvider>
           ))}
         </Animated.View>
       </GestureDetector>

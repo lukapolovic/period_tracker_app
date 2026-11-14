@@ -7,7 +7,6 @@ import { Drift } from './flow-page';
 type StickerProps = {
   name: ArtName;
   width: number;
-  page: number;
   /** See `Drift`. Characters usually sit closer than the cards, so the default is negative. */
   drift?: number;
   scroll?: number;
@@ -18,10 +17,10 @@ type StickerProps = {
 };
 
 /** A character placed on the page. Decorative, so it stays out of the accessibility tree. */
-export function Sticker({ name, width, page, drift = -0.16, scroll = 0, rotate = 0, flip = false, style }: StickerProps) {
+export function Sticker({ name, width, drift = -0.16, scroll = 0, rotate = 0, flip = false, style }: StickerProps) {
   const art = ART[name];
   return (
-    <Drift page={page} amount={drift} scroll={scroll} arrive style={[styles.sticker, style]}>
+    <Drift amount={drift} scroll={scroll} arrive style={[styles.sticker, style]}>
       <Image
         source={art.source}
         contentFit="contain"

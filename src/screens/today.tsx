@@ -7,19 +7,20 @@ import { Snackbar, useSnackbar } from '@/components/snackbar';
 import { Badge, Button, Card, Chip, Notice, SectionTitle, Text, TextButton } from '@/components/ui';
 import { MOODS, QUICK_MOODS, QUICK_SYMPTOMS, SYMPTOMS } from '@/constants/log-options';
 import { Drift, FlowPage } from '@/flow/flow-page';
-import { Pages, useFlow } from '@/flow/flow-provider';
+import { useFlow } from '@/flow/flow-provider';
 import { openDay, openHowItWorks } from '@/flow/sheet';
 import { Sticker } from '@/flow/sticker';
-import { usePrediction } from '@/hooks/use-prediction';
+import { Pages } from '@/flow/stops';
+import { useDayStatus, usePrediction } from '@/hooks/use-prediction';
 import { useToday } from '@/hooks/use-today';
-import { nextOvulation, RULES, type Prediction } from '@/lib/cycle';
-import { diffDays, formatDay, formatRange, plural } from '@/lib/dates';
+import { nextOvulation, type Prediction } from '@/lib/cycle';
+import { formatDay, formatRange, plural, type ISODate } from '@/lib/dates';
+import { cycleMap, type CycleMap } from '@/lib/day-status';
 import { tapFeedback } from '@/lib/haptics';
-import { findPeriod } from '@/lib/periods';
+import { periodStartOn, type Change, type RecordEdit } from '@/lib/record';
 import { useAppStore } from '@/store/app-store';
 import { radius, space, useTheme } from '@/theme';
 
-const PAGE = Pages.today;
 
 const labelOf = (id: string) => [...SYMPTOMS, ...MOODS].find((o) => o.id === id)?.label ?? id;
 
@@ -93,28 +94,24 @@ function heroFor(p: Prediction, endedToday: boolean): Hero {
   }
 }
 
-function ringFor(p: Prediction) {
-  const periodDays = p.cycles.at(-1)?.periodLength ?? 0;
-  const window =
-    p.next && p.lastStart
-      ? { fromDay: diffDays(p.next.from, p.lastStart) + 1, toDay: diffDays(p.next.to, p.lastStart) + 1 }
-      : null;
-  const thisCycle = p.ovulation.find((w) => p.next && w.to < p.next.likelyStart);
-  const ovulation =
-    thisCycle && p.lastStart
-      ? { fromDay: diffDays(thisCycle.from, p.lastStart) + 1, toDay: diffDays(thisCycle.to, p.lastStart) + 1 }
-      : null;
-  const totalDays = Math.max(p.baseLength + p.spread, p.cycleDay ?? 0, periodDays, window?.toDay ?? 0);
-  const label =
-    p.status === 'empty'
-      ? 'Cycle ring. No periods logged yet.'
-      : [
-          `Cycle day ${p.cycleDay}.`,
-          `Period on days 1 to ${periodDays}.`,
-          thisCycle ? `Estimated ovulation window ${formatRange(thisCycle.from, thisCycle.to)}.` : '',
-          p.next ? `Next period likely ${formatRange(p.next.from, p.next.to)}.` : '',
-        ].join(' ');
-  return { periodDays, window, ovulation, totalDays, label };
+function ringLabel(p: Prediction, ring: CycleMap): string {
+  if (p.status === 'empty') return 'Cycle ring. No periods logged yet.';
+  return [
+    `Cycle day ${ring.cycleDay}.`,
+    `Period on days 1 to ${ring.periodDays}.`,
+    ring.ovulation ? `Estimated ovulation window ${formatRange(ring.ovulation.from, ring.ovulation.to)}.` : '',
+    p.next ? `Next period likely ${formatRange(p.next.from, p.next.to)}.` : '',
+  ].join(' ');
+}
+
+/** What the snackbar says after "Period started". The sanity check (§12.2 F-04) is said quietly, never as a pop-up. */
+function startedMessage({ after }: Change, today: ISODate): string {
+  const start = periodStartOn(after, today);
+  if (start?.kind === 'joined') return 'Added today to your period';
+  if (start?.kind === 'new' && start.unusuallySoon) {
+    return `Saved — only ${plural(start.daysSinceLast, 'day')} since your last period started.`;
+  }
+  return 'Period started today';
 }
 
 export function TodayPage() {
@@ -122,55 +119,34 @@ export function TodayPage() {
   const { width, goTo } = useFlow();
   const today = useToday();
   const prediction = usePrediction(today);
-  const log = useAppStore((s) => s.logs[today]);
-  const markPeriodDay = useAppStore((s) => s.markPeriodDay);
-  const endPeriodOn = useAppStore((s) => s.endPeriodOn);
-  const setFlow = useAppStore((s) => s.setFlow);
-  const toggleSymptom = useAppStore((s) => s.toggleSymptom);
-  const toggleMood = useAppStore((s) => s.toggleMood);
-  const snapshot = useAppStore((s) => s.snapshot);
-  const restore = useAppStore((s) => s.restore);
+  const status = useDayStatus(prediction, today)(today);
+  const log = useAppStore((s) => s.record.logs[today]);
+  const apply = useAppStore((s) => s.apply);
+  const undo = useAppStore((s) => s.undo);
   const { snack, show, hide } = useSnackbar();
 
-  const current = prediction.currentPeriod;
-  const endedToday = !!current && !current.endEstimated && current.end === today;
+  const endedToday = status.kind === 'period' && !status.canEndHere;
   const hero = heroFor(prediction, endedToday);
-  const ring = ringFor(prediction);
+  const ring = cycleMap(prediction);
   const ovulation = nextOvulation(prediction, today);
 
   const discRadius = Math.min(width * 0.31, 150);
   const heroHeight = discRadius * 2.9;
   const shortSub = !!hero.sub && hero.sub.length < 20;
 
-  /** Every change from Today can be undone from the snackbar. */
-  const withUndo = (action: () => void, message: () => string) => {
-    const before = snapshot();
-    action();
+  /** The main button's changes can be undone from the snackbar. Undo takes back that change and nothing logged since. */
+  const withUndo = (edit: RecordEdit, message: (change: Change) => string) => {
+    const change = apply(edit);
     tapFeedback();
-    show({ message: message(), actionLabel: 'Undo', onAction: () => restore(before) });
+    show({ message: message(change), actionLabel: 'Undo', onAction: () => undo(change) });
   };
 
-  const periodStarted = () => {
-    const sinceLast = prediction.cycleDay ? prediction.cycleDay - 1 : null;
-    withUndo(
-      () => markPeriodDay(today),
-      () => {
-        const period = findPeriod(useAppStore.getState().periods, today);
-        if (period && period.start !== today) return 'Added today to your period';
-        // Sanity check from §12.2 F-04 — said quietly, never as a pop-up.
-        if (sinceLast !== null && sinceLast < RULES.minValidCycle) {
-          return `Saved — only ${plural(sinceLast, 'day')} since your last period started.`;
-        }
-        return 'Period started today';
-      },
-    );
-  };
-
-  const periodEnded = () => withUndo(() => endPeriodOn(today), () => 'Period end saved');
+  const periodStarted = () => withUndo({ type: 'mark-period-day', date: today }, (change) => startedMessage(change, today));
+  const periodEnded = () => withUndo({ type: 'end-period', date: today }, () => 'Period end saved');
 
   return (
-    <FlowPage index={PAGE} overlay={<Snackbar snack={snack} onHide={hide} />}>
-      <Drift page={PAGE} amount={0.04} style={styles.dateRow}>
+    <FlowPage overlay={<Snackbar snack={snack} onHide={hide} />}>
+      <Drift amount={0.04} style={styles.dateRow}>
         <View style={[styles.pill, { backgroundColor: colors.surface }]}>
           <Text variant="label" accessibilityRole="header">
             {formatDay(today, { weekday: true, month: 'long' })}
@@ -179,15 +155,15 @@ export function TodayPage() {
       </Drift>
 
       <View style={styles.stage}>
-        <HeroWrap page={PAGE} radius={discRadius} height={heroHeight} ribbonText={hero.line}>
+        <HeroWrap radius={discRadius} height={heroHeight} ribbonText={hero.line}>
           <CycleRing
             size={discRadius * 1.74}
             totalDays={ring.totalDays}
-            cycleDay={prediction.cycleDay}
+            cycleDay={ring.cycleDay}
             periodDays={ring.periodDays}
-            window={ring.window}
-            ovulation={ring.ovulation}
-            label={`${ring.label} ${hero.top} ${hero.big} ${hero.unit ?? ''}. ${hero.line}.`}>
+            window={ring.nextWindow}
+            ovulation={ring.ovulationDays}
+            label={`${ringLabel(prediction, ring)} ${hero.top} ${hero.big} ${hero.unit ?? ''}. ${hero.line}.`}>
             <Text variant="label" tone="secondary" align="center">
               {hero.top}
             </Text>
@@ -206,23 +182,23 @@ export function TodayPage() {
             ) : null}
           </CycleRing>
         </HeroWrap>
-        <Sticker name="sit-wave" page={PAGE} width={width * 0.25} style={styles.waver} />
-        <Sticker name="spark-coral" page={PAGE} width={30} drift={-0.3} rotate={10} style={styles.sparkA} />
-        <Sticker name="spark-green" page={PAGE} width={36} drift={-0.34} rotate={-12} style={styles.sparkB} />
+        <Sticker name="sit-wave" width={width * 0.25} style={styles.waver} />
+        <Sticker name="spark-coral" width={30} drift={-0.3} rotate={10} style={styles.sparkA} />
+        <Sticker name="spark-green" width={36} drift={-0.34} rotate={-12} style={styles.sparkB} />
       </View>
 
-      <Drift page={PAGE} amount={0.05} style={styles.tags}>
+      <Drift amount={0.05} style={styles.tags}>
         {shortSub ? (
           <View style={[styles.tag, { backgroundColor: colors.surface }]}>
             <Text variant="label">{hero.sub}</Text>
           </View>
         ) : null}
         {hero.badge ? <Badge label={hero.badge.label} dashed={hero.badge.dashed} /> : null}
-        {ovulation && ovulation.from <= today ? <Badge label="Ovulation estimate" dashed /> : null}
+        {status.kind === 'ovulation' ? <Badge label="Ovulation estimate" dashed /> : null}
       </Drift>
       {hero.sub && !shortSub ? <Notice>{hero.sub}</Notice> : null}
 
-      <Drift page={PAGE} amount={0.08} style={styles.actions}>
+      <Drift amount={0.08} style={styles.actions}>
         {prediction.status === 'period' && !endedToday ? (
           <Button label="Period ended" icon="checkmark" onPress={periodEnded} />
         ) : prediction.status === 'period' ? (
@@ -239,14 +215,14 @@ export function TodayPage() {
         ) : null}
       </Drift>
 
-      <Drift page={PAGE} amount={0.12}>
+      <Drift amount={0.12}>
         <Card
           title="Today's log"
           action={<TextButton label="Edit" onPress={() => openDay(today)} />}>
           {prediction.status === 'period' ? (
             <>
               <SectionTitle>Flow</SectionTitle>
-              <FlowSelector value={log?.flow} onChange={(flow) => setFlow(today, flow)} />
+              <FlowSelector value={log?.flow} onChange={(flow) => apply({ type: 'set-flow', date: today, flow })} />
             </>
           ) : null}
           <SectionTitle>How are you feeling?</SectionTitle>
@@ -257,7 +233,7 @@ export function TodayPage() {
                 category="symptom"
                 label={labelOf(id)}
                 selected={!!log?.symptoms?.includes(id)}
-                onPress={() => toggleSymptom(today, id)}
+                onPress={() => apply({ type: 'toggle-symptom', date: today, id })}
               />
             ))}
             {QUICK_MOODS.map((id) => (
@@ -266,7 +242,7 @@ export function TodayPage() {
                 category="mood"
                 label={labelOf(id)}
                 selected={!!log?.moods?.includes(id)}
-                onPress={() => toggleMood(today, id)}
+                onPress={() => apply({ type: 'toggle-mood', date: today, id })}
               />
             ))}
             <Chip role="button" label="More" onPress={() => openDay(today)} accessibilityHint="Opens the full log for today" />
@@ -280,7 +256,7 @@ export function TodayPage() {
       </Drift>
 
       {ovulation ? (
-        <Drift page={PAGE} amount={0.14}>
+        <Drift amount={0.14}>
           <Card>
             <Text variant="label" tone="secondary">
               Ovulation estimate
@@ -304,9 +280,9 @@ export function TodayPage() {
       ) : null}
 
       <View style={[styles.band, { height: width * 0.6 }]}>
-        <Sticker name="cheer" page={PAGE} width={width * 0.32} drift={-0.2} style={styles.cheer} />
-        <Sticker name="skip" page={PAGE} width={width * 0.38} drift={-0.28} style={styles.skip} />
-        <Sticker name="spark-lilac" page={PAGE} width={34} drift={-0.36} rotate={12} style={styles.sparkC} />
+        <Sticker name="cheer" width={width * 0.32} drift={-0.2} style={styles.cheer} />
+        <Sticker name="skip" width={width * 0.38} drift={-0.28} style={styles.skip} />
+        <Sticker name="spark-lilac" width={34} drift={-0.36} rotate={12} style={styles.sparkC} />
       </View>
 
       <View style={[styles.footer, { backgroundColor: colors.surface }]}>
